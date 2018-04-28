@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Dungeon.Game.Levels;
 using Microsoft.Xna.Framework;
 
@@ -49,6 +50,37 @@ namespace Dungeon.Game.Entities
             if (Path.Count == 0)
             {
                 IsMoving = false;
+            }
+        }
+
+        public void MoveTo(Direction direction)
+        {
+            var oldPos = Position;
+            Position = NewPosition(direction, oldPos);
+        }
+
+        public static Point NewPosition(Direction direction, Point oldPos)
+        {
+            switch (direction)
+            {
+                case Direction.South:
+                    return new Point(oldPos.X, oldPos.Y + 1);
+                case Direction.North:
+                    return new Point(oldPos.X, oldPos.Y - 1);
+                case Direction.West:
+                    return new Point(oldPos.X - 1, oldPos.Y);
+                case Direction.East:
+                    return new Point(oldPos.X + 1, oldPos.Y);
+                case Direction.NorthEast:
+                    return new Point(oldPos.X + 1, oldPos.Y - 1);
+                case Direction.NorthWest:
+                    return new Point(oldPos.X - 1, oldPos.Y - 1);
+                case Direction.SouthEast:
+                    return new Point(oldPos.X + 1, oldPos.Y + 1);
+                case Direction.SouthWest:
+                    return new Point(oldPos.X - 1, oldPos.Y + 1);
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(direction), direction, null);
             }
         }
     }

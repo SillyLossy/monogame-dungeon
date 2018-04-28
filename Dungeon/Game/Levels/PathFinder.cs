@@ -8,28 +8,32 @@ namespace Dungeon.Game.Levels
     public static class DictionaryExtensions
     {
 
-        public static KeyValuePair<TKey, TValue> MinValuePair<TKey, TValue>(this IDictionary<TKey, TValue> dictionary, ISet<TKey> set) where TValue : IComparable<TValue>
+        public static TKey KeyWithMinValueFromKeySet<TKey, TValue>(this IDictionary<TKey, TValue> dictionary, ISet<TKey> set, TValue initialMin) where TValue : IComparable<TValue>
         {
-            KeyValuePair<TKey, TValue>? minPair = null;
+            var keys = new HashSet<TKey>(dictionary.Keys);
 
-            foreach (var pair in dictionary)
+            TKey minKey = keys.First();
+            TValue minValue = initialMin;
+
+            keys.IntersectWith(set);
+
+            foreach (var key in keys)
             {
-                if (minPair != null && minPair.Value.Value.CompareTo(pair.Value) < 0)
+                TValue value = dictionary[key];
+                if (minValue.CompareTo(value) < 0)
                 {
                     continue;
                 }
-                if (set.Contains(pair.Key))
-                {
-                    minPair = pair;
-                }
+                minKey = key;
+                minValue = value;
             }
 
-            return minPair ?? throw new InvalidOperationException("Dictionary is empty");
+            return minKey;
         }
     }
+
     public static class PathFinder
     {
-
         private class DefaultableDictionary<TKey, TValue> : Dictionary<TKey, TValue>
         {
             private readonly TValue _default;
@@ -47,9 +51,11 @@ namespace Dungeon.Game.Levels
         }
 
 
-        private static float HeuristicCostEstimate(Point start, Point goal)
+        private static double HeuristicCostEstimate(Point start, Point goal)
         {
-            return Vector2.Distance(start.ToVector2(), goal.ToVector2());
+            double num1 = start.X - goal.X;
+            double num2 = start.Y - goal.Y;
+            return Math.Sqrt(num1 * num1 + num2 * num2);
         }
 
         private static Stack<Point> ReconstructPath(DefaultableDictionary<Point, Point?> cameFrom, Point current)
@@ -81,16 +87,16 @@ namespace Dungeon.Game.Levels
 
             // For each node, the cost of getting from the start node to that node.
             // The cost of going from start to start is zero.
-            var gScore = new DefaultableDictionary<Point, float>(float.PositiveInfinity) { { start, 0 } };
+            var gScore = new DefaultableDictionary<Point, double>(double.PositiveInfinity) { { start, 0 } };
 
             // For each node, the total cost of getting from the start node to the goal
             // by passing by that node. That value is partly known, partly heuristic.
             // For the first node, that value is completely heuristic.
-            var fScore = new DefaultableDictionary<Point, float>(float.PositiveInfinity) { { start, HeuristicCostEstimate(start, goal) } };
+            var fScore = new DefaultableDictionary<Point, double>(double.PositiveInfinity) { { start, HeuristicCostEstimate(start, goal) } };
 
             while (openSet.Count != 0)
             {
-                var current = fScore.MinValuePair(openSet).Key;
+                var current = fScore.KeyWithMinValueFromKeySet(openSet, double.PositiveInfinity);
 
                 if (current == goal)
                 {
@@ -107,7 +113,7 @@ namespace Dungeon.Game.Levels
                     }
 
                     // The distance from start to a neighbor
-                    float tentativeGScore = gScore[current] + Vector2.Distance(current.ToVector2(), neighbor.ToVector2());
+                    double tentativeGScore = gScore[current] + HeuristicCostEstimate(start, goal);
                     if (tentativeGScore >= gScore[neighbor])
                     {
                         continue; // This is not a better path.

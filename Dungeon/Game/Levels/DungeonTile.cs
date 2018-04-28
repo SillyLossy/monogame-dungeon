@@ -2,6 +2,9 @@
 {
     public enum DungeonTile
     {
-        Wall, Floor, Stone
+        Wall,
+        Floor,
+        Stone,
+        Test
     }
 }

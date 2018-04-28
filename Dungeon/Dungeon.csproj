@@ -42,9 +42,13 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Game\Direction.cs" />
+    <Compile Include="Game\DungeonGameState.cs" />
+    <Compile Include="Game\Levels\DungeonGenerator.cs" />
     <Compile Include="Game\Entities\Entity.cs" />
     <Compile Include="Game\Levels\DungeonFloor.cs" />
     <Compile Include="Game\Levels\DungeonTile.cs" />
+    <Compile Include="Game\Levels\FloorSettings.cs" />
     <Compile Include="Game\Levels\Join.cs" />
     <Compile Include="Game\DungeonGame.cs" />
     <Compile Include="Game\Levels\PathFinder.cs" />

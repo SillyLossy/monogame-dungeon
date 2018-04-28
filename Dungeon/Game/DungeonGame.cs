@@ -5,7 +5,6 @@ using Microsoft.Xna.Framework.Input;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Dungeon.Game.Entities;
 
 namespace Dungeon.Game
 {
@@ -16,23 +15,25 @@ namespace Dungeon.Game
     {
         private readonly GraphicsDeviceManager graphics;
         private SpriteBatch spriteBatch;
-        
+
         private const int TileSize = 8;
-        private const int LevelWidth = 100;
-        private const int LevelHeight = 100;
-        private readonly DungeonFloor floor;
-        private readonly Entity player;
+        private const int UpdatesPerSecond = 5;
+        private const double TimeBetweenUpdates = 1000d / UpdatesPerSecond;
+        private MouseState? prevMouseState;
         private Point? selectedPoint;
+        private Action inputAction;
+        private Dictionary<object, Texture2D> Textures;
+        private TimeSpan lastUpdate;
+        private DungeonGameState gameState;
 
         public DungeonGame()
         {
-            floor = new DungeonFloor((int) DateTime.UtcNow.Ticks, LevelWidth, LevelHeight, 20, 15, 20, true, 2, 2);
-            floor.GenerateLevel();
-            player = floor.AddEntity();
+            gameState = new DungeonGameState();
             graphics = new GraphicsDeviceManager(this);
             Content.RootDirectory = "Content";
-            graphics.PreferredBackBufferWidth = TileSize * LevelWidth;  // set this value to the desired width of your window
-            graphics.PreferredBackBufferHeight = TileSize * LevelHeight;
+
+            graphics.PreferredBackBufferWidth = TileSize * gameState.CurrentFloor.Settings.Width;  // set this value to the desired width of your window
+            graphics.PreferredBackBufferHeight = TileSize * gameState.CurrentFloor.Settings.Height;
         }
 
         /// <summary>
@@ -55,18 +56,17 @@ namespace Dungeon.Game
         {
             // Create a new SpriteBatch, which can be used to draw textures.
             spriteBatch = new SpriteBatch(GraphicsDevice);
-            
+
             Textures = new Dictionary<object, Texture2D>
             {
-                [DungeonTile.Floor] = CreateTexture(Color.WhiteSmoke),
-                [DungeonTile.Stone] = CreateTexture(Color.Gray),
-                [DungeonTile.Wall] = CreateTexture(Color.DodgerBlue),
-                [TextureKey.Player] = CreateTexture(Color.Red),
+                [DungeonTile.Floor] = Content.Load<Texture2D>(TextureKey.FromTile(DungeonTile.Floor)),
+                [DungeonTile.Stone] = Content.Load<Texture2D>(TextureKey.FromTile(DungeonTile.Stone)),
+                [DungeonTile.Wall] = Content.Load<Texture2D>(TextureKey.FromTile(DungeonTile.Wall)),
+                [TextureKey.Player] = Content.Load<Texture2D>(TextureKey.Player),
                 [TextureKey.Path] = CreateTexture(new Color(0, 255, 0, 50)),
-                [TextureKey.Target] = CreateTexture(Color.Green)
+                [TextureKey.Target] = CreateTexture(Color.Green),
+                [DungeonTile.Test] = CreateTexture(Color.IndianRed)
             };
-
-            // TODO: use this.Content to load your game content here
         }
 
         private Texture2D CreateTexture(Color color, int width = TileSize, int height = TileSize)
@@ -97,24 +97,92 @@ namespace Dungeon.Game
         {
             if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
                 Exit();
-            
-            MovePlayer();
-            DoSteps();
 
+            if ((gameTime.TotalGameTime - lastUpdate).TotalMilliseconds < TimeBetweenUpdates)
+            {
+                // This will record action in between the processed time frames
+                HandleMouse();
+                HandleKeyboard();
+                return;
+            }
+
+            // Only do update if we have a pending action or the player is already moving.
+            if (inputAction != null || gameState.Player.IsMoving)
+            {
+                inputAction?.Invoke();
+                DoSteps();
+            }
+
+            lastUpdate = gameTime.TotalGameTime;
+            inputAction = null;
             base.Update(gameTime);
         }
-
+        
         private void DoSteps()
         {
-            foreach (var entity in floor.Entities.Where(e => e.IsMoving))
+            foreach (var entity in gameState.CurrentFloor.Entities.Where(e => e.IsMoving))
             {
                 entity.Step();
             }
         }
 
-        private void MovePlayer()
+        private void HandleMouse()
         {
             var mouseState = Mouse.GetState(Window);
+
+            if (prevMouseState.HasValue)
+            {
+                if (prevMouseState.Value.LeftButton != mouseState.LeftButton)
+                {
+                    if (mouseState.LeftButton == ButtonState.Pressed)
+                    {
+                        inputAction = () => MovePlayerByClick(mouseState);
+                    }
+                }
+            }
+
+            prevMouseState = mouseState;
+        }
+
+        private void HandleKeyboard()
+        {
+            var keyboard = Keyboard.GetState();
+            Direction? direction = null;
+
+            if (keyboard.IsKeyDown(Keys.Left))
+            {
+                direction  = Direction.West;
+            }
+            else if (keyboard.IsKeyDown(Keys.Right))
+            {
+                direction = (Direction.East);
+            }
+            else if (keyboard.IsKeyDown(Keys.Up))
+            {
+                direction = (Direction.North);
+            }
+            else if (keyboard.IsKeyDown(Keys.Down))
+            {
+                direction = (Direction.South);
+            }
+
+            if (direction.HasValue)
+            {
+                inputAction = (() => MovePlayerByDirection(direction.Value));
+            }
+        }
+
+        private void MovePlayerByDirection(Direction direction)
+        {
+            if (gameState.CurrentFloor.CanEntityMove(gameState.Player, direction))
+            {
+                gameState.Player.MoveTo(direction);
+            }
+
+        }
+
+        private void MovePlayerByClick(MouseState mouseState)
+        {
             var bufferRect = new Rectangle(0, 0, graphics.PreferredBackBufferWidth, graphics.PreferredBackBufferHeight);
 
             // prevent processing mouse outside the window
@@ -122,15 +190,15 @@ namespace Dungeon.Game
             {
                 int x = mouseState.X / TileSize;
                 int y = mouseState.Y / TileSize;
-                Point? point = floor.Level[x, y] == DungeonTile.Floor ? new Point(x, y) : (Point?)null;
+                Point? point = gameState.CurrentFloor.Tiles[x, y] == DungeonTile.Floor ? new Point(x, y) : (Point?)null;
                 if (point != null && point != selectedPoint)
                 {
-                    player.MoveTo(point.Value);
+                    gameState.Player.MoveTo(point.Value);
                     selectedPoint = point;
                 }
             }
 
-            if (!player.IsMoving)
+            if (!gameState.Player.IsMoving)
             {
                 selectedPoint = null;
             }
@@ -142,35 +210,33 @@ namespace Dungeon.Game
         /// <param name="gameTime">Provides a snapshot of timing values.</param>
         protected override void Draw(GameTime gameTime)
         {
-            var level = floor.Level;
+            var level = gameState.CurrentFloor.Tiles;
             GraphicsDevice.Clear(Color.Black);
 
             spriteBatch.Begin();
-            for (int x = 0; x < LevelWidth; x++)
+            for (int x = 0; x < gameState.CurrentFloor.Settings.Width; x++)
             {
-                for (int y = 0; y < LevelHeight; y++)
+                for (int y = 0; y < gameState.CurrentFloor.Settings.Height; y++)
                 {
-                    spriteBatch.Draw(Textures[level[x,y]], new Vector2(x * TileSize, y * TileSize), Color.White);
+                    spriteBatch.Draw(Textures[level[x, y]], new Vector2(x * TileSize, y * TileSize), Color.White);
                 }
             }
             if (selectedPoint != null)
             {
                 spriteBatch.Draw(Textures[TextureKey.Target], new Vector2(selectedPoint.Value.X * TileSize, selectedPoint.Value.Y * TileSize), Color.White);
-                if (player.Path != null)
+                if (gameState.Player.Path != null)
                 {
-                    foreach (var point in player.Path)
+                    foreach (var point in gameState.Player.Path)
                     {
                         spriteBatch.Draw(Textures[TextureKey.Path], new Vector2(point.X * TileSize, point.Y * TileSize), Color.White);
                     }
                 }
             }
-            spriteBatch.Draw(Textures[TextureKey.Player], new Vector2(player.Position.X * TileSize, player.Position.Y * TileSize), Color.White);
+            spriteBatch.Draw(Textures[TextureKey.Player], new Vector2(gameState.Player.Position.X * TileSize, gameState.Player.Position.Y * TileSize), Color.White);
             spriteBatch.End();
             // TODO: Add your drawing code here
 
             base.Draw(gameTime);
         }
-
-        private Dictionary<object, Texture2D> Textures;
     }
 }
