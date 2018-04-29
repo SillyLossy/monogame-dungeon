@@ -47,6 +47,7 @@
     <Compile Include="Game\Entities\Door.cs" />
     <Compile Include="Game\Entities\MovableEntity.cs" />
     <Compile Include="Game\Entities\Player.cs" />
+    <Compile Include="Game\TextGameLog.cs" />
     <Compile Include="Game\Levels\DungeonGenerator.cs" />
     <Compile Include="Game\Entities\Entity.cs" />
     <Compile Include="Game\Levels\DungeonFloor.cs" />

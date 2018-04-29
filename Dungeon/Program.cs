@@ -14,6 +14,8 @@ namespace Dungeon
         [STAThread]
         private static void Main()
         {
+            var log = new TextGameLog();
+            log.PushLine("ABCDEFGHIJKLMNOPQRSTUVWXYZ");
             using (var game = new DungeonGame())
                 game.Run();
         }

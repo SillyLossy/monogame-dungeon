@@ -16,14 +16,15 @@ namespace Dungeon.Game.Levels
         {
             get
             {
-                Point point;
-                while (true)
+                Point point = Point.Zero;
+                for (int i = 0; i < Settings.Width * Settings.Height; i++)
                 {
                     int x = random.Next(Settings.Width);
                     int y = random.Next(Settings.Height);
-                    if (Tiles[x, y] == DungeonTile.Floor)
+                    var randomPoint = new Point(x, y);
+                    if (Tiles[x, y] == DungeonTile.Floor || entities.Find(e => e.Position == randomPoint) == null)
                     {
-                        point = new Point(x, y);
+                        point = randomPoint;
                         break;
                     }
                 }

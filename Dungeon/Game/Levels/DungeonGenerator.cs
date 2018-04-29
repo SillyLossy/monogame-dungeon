@@ -241,6 +241,7 @@ namespace Dungeon.Game.Levels
             }
 
             floor.Doors = doors.Values.ToList();
+            //var entrance = floor.RandomFreePoint
 
             return floor;
         }
