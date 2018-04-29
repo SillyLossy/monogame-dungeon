@@ -58,20 +58,20 @@ namespace Dungeon.Game.Levels
             return Math.Sqrt(num1 * num1 + num2 * num2);
         }
 
-        private static Stack<Point> ReconstructPath(DefaultableDictionary<Point, Point?> cameFrom, Point current)
+        private static LinkedList<Point> ReconstructPath(DefaultableDictionary<Point, Point?> cameFrom, Point current)
         {
-            var result = new Stack<Point>();
+            var result = new LinkedList<Point>();
             Point? currentNode = current;
             while (currentNode != null)
             {
-                result.Push(currentNode.Value);
+                result.AddFirst(currentNode.Value);
                 currentNode = cameFrom[currentNode.Value];
             }
             
             return result;
         }
 
-        public static Stack<Point> AStar(DungeonFloor floor, Point start, Point goal)
+        public static LinkedList<Point> AStar(DungeonFloor floor, Point start, Point goal)
         {
             // The set of nodes already evaluated
             var closedSet = new HashSet<Point>();
@@ -93,7 +93,7 @@ namespace Dungeon.Game.Levels
             // by passing by that node. That value is partly known, partly heuristic.
             // For the first node, that value is completely heuristic.
             var fScore = new DefaultableDictionary<Point, double>(double.PositiveInfinity) { { start, HeuristicCostEstimate(start, goal) } };
-
+            
             while (openSet.Count != 0)
             {
                 var current = fScore.KeyWithMinValueFromKeySet(openSet, double.PositiveInfinity);

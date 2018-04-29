@@ -17,25 +17,26 @@ namespace Dungeon.Game
     {
         private readonly GraphicsDeviceManager graphics;
         private SpriteBatch spriteBatch;
-
-        private const int TileSize = 8;
+        
         private const int UpdatesPerSecond = 15;
         private const double TimeBetweenUpdates = 1000d / UpdatesPerSecond;
         private const string SaveFilePath = "Save.dgn";
         private MouseState? prevMouseState;
+        private MouseState? prevViewportMouseState;
         private Point? selectedPoint;
         private Action inputAction;
         private Dictionary<object, Texture2D> Textures;
         private TimeSpan lastUpdate;
         private KeyboardState? prevKeyboardState;
         private readonly DungeonGameState gameState;
+        private readonly Viewport2D viewport;
 
         private static readonly JsonSerializerSettings SerializerSettings = new JsonSerializerSettings
         {
             TypeNameHandling = TypeNameHandling.Auto
         };
 
-    public DungeonGame()
+        public DungeonGame()
         {
             try
             {
@@ -43,15 +44,23 @@ namespace Dungeon.Game
                     ? JsonConvert.DeserializeObject<DungeonGameState>(File.ReadAllText(SaveFilePath), SerializerSettings)
                     : new DungeonGameState(generateFloors: true);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 gameState = new DungeonGameState(generateFloors: true);
             }
             graphics = new GraphicsDeviceManager(this);
             Content.RootDirectory = "Content";
+            viewport = new Viewport2D();
+            CenterViewport();
+        }
 
-            graphics.PreferredBackBufferWidth = TileSize * gameState.CurrentFloor.Settings.Width;  // set this value to the desired width of your window
-            graphics.PreferredBackBufferHeight = TileSize * gameState.CurrentFloor.Settings.Height;
+        private void CenterViewport()
+        {
+            var size = viewport.ToTileSize(graphics.PreferredBackBufferWidth, graphics.PreferredBackBufferHeight);
+            int left = (size.Item1 / 2) - (gameState.CurrentFloor.Settings.Width / 2);
+            int top = (size.Item2 / 2) - (gameState.CurrentFloor.Settings.Height / 2);
+            viewport.Left = left;
+            viewport.Top = top;
         }
 
         /// <summary>
@@ -83,13 +92,13 @@ namespace Dungeon.Game
                 [TextureKey.Player] = Content.Load<Texture2D>(TextureKey.Player),
                 [TextureKey.OpenDoor] = Content.Load<Texture2D>(TextureKey.OpenDoor),
                 [TextureKey.ClosedDoor] = Content.Load<Texture2D>(TextureKey.ClosedDoor),
-                [TextureKey.Path] = CreateTexture(new Color(0, 255, 0, 50)),
-                [TextureKey.Target] = CreateTexture(Color.Green),
-                [DungeonTile.Test] = CreateTexture(Color.IndianRed)
+                [TextureKey.Path] = CreateTexture(new Color(0, 255, 0, 50), 8, 8),
+                [TextureKey.Target] = CreateTexture(Color.Green, 8, 8),
+                [DungeonTile.Test] = CreateTexture(Color.IndianRed, 8, 8)
             };
         }
 
-        private Texture2D CreateTexture(Color color, int width = TileSize, int height = TileSize)
+        private Texture2D CreateTexture(Color color, int width, int height)
         {
             var result = new Texture2D(GraphicsDevice, width, height);
             result.SetData(Enumerable.Repeat(color, width * height).ToArray());
@@ -122,6 +131,7 @@ namespace Dungeon.Game
             if ((gameTime.TotalGameTime - lastUpdate).TotalMilliseconds < TimeBetweenUpdates)
             {
                 // This will record action in between the processed time frames
+                HandleViewport();
                 HandleMouse();
                 HandleKeyboard();
                 return;
@@ -137,6 +147,38 @@ namespace Dungeon.Game
             lastUpdate = gameTime.TotalGameTime;
             inputAction = null;
             base.Update(gameTime);
+        }
+
+        private void HandleViewport()
+        {
+            MouseState mouseState = Mouse.GetState(Window);
+            if (prevViewportMouseState != null)
+            {
+                MouseState prevState = prevViewportMouseState.Value;
+                if (prevState.ScrollWheelValue < mouseState.ScrollWheelValue)
+                {
+                    viewport.UpScale();
+                    CenterViewport();
+                }
+                else if (prevState.ScrollWheelValue > mouseState.ScrollWheelValue)
+                {
+                    viewport.DownScale();
+                    CenterViewport();
+                }
+
+                if (prevState.LeftButton == ButtonState.Pressed &&
+                    mouseState.LeftButton == ButtonState.Pressed)
+                {
+                    var newPos = viewport.TranslateClick(mouseState.X, mouseState.Y);
+                    var oldPos = viewport.TranslateClick(prevState.X, prevState.Y);
+                    int leftDelta = oldPos.X - newPos.X;
+                    int topDelta = oldPos.Y - newPos.Y;
+                    viewport.Left -= leftDelta;
+                    viewport.Top -= topDelta;
+                }
+            }
+
+            prevViewportMouseState = mouseState;
         }
 
         private void HandleMouse()
@@ -201,9 +243,7 @@ namespace Dungeon.Game
             // prevent processing mouse outside the window
             if (mouseState.LeftButton == ButtonState.Pressed && bufferRect.Contains(mouseState.X, mouseState.Y))
             {
-                int x = mouseState.X / TileSize;
-                int y = mouseState.Y / TileSize;
-                var point = new Point(x, y);
+                var point = viewport.TranslateClick(mouseState.X, mouseState.Y);
                 if (point != selectedPoint)
                 {
                     gameState.MovePlayer(point);
@@ -227,14 +267,14 @@ namespace Dungeon.Game
             GraphicsDevice.Clear(Color.Black);
 
             // Begin draw
-            spriteBatch.Begin();
+            spriteBatch.Begin(samplerState: SamplerState.PointClamp);
 
             // Paint static tiles
             for (int x = 0; x < gameState.CurrentFloor.Settings.Width; x++)
             {
                 for (int y = 0; y < gameState.CurrentFloor.Settings.Height; y++)
                 {
-                    spriteBatch.Draw(Textures[level[x, y]], new Vector2(x * TileSize, y * TileSize), Color.White);
+                    spriteBatch.Draw(Textures[level[x, y]], viewport.TranslatePoint(x, y), Color.White);
                 }
             }
 
@@ -242,12 +282,12 @@ namespace Dungeon.Game
             // TODO: Remove this after debugging
             if (selectedPoint != null)
             {
-                spriteBatch.Draw(Textures[TextureKey.Target], new Vector2(selectedPoint.Value.X * TileSize, selectedPoint.Value.Y * TileSize), Color.White);
+                spriteBatch.Draw(Textures[TextureKey.Target], viewport.TranslatePoint(selectedPoint.Value.X, selectedPoint.Value.Y), Color.White);
                 if (gameState.Player.Path != null)
                 {
                     foreach (var point in gameState.Player.Path)
                     {
-                        spriteBatch.Draw(Textures[TextureKey.Path], new Vector2(point.X * TileSize, point.Y * TileSize), Color.White);
+                        spriteBatch.Draw(Textures[TextureKey.Path], viewport.TranslatePoint(point.X, point.Y), Color.White);
                     }
                 }
             }
@@ -256,12 +296,12 @@ namespace Dungeon.Game
             foreach (var door in gameState.CurrentFloor.Doors)
             {
                 var texture = Textures[door.IsOpen ? TextureKey.OpenDoor : TextureKey.ClosedDoor];
-                spriteBatch.Draw(texture, new Vector2(door.Position.X * TileSize, door.Position.Y * TileSize), Color.White);
+                spriteBatch.Draw(texture, viewport.TranslatePoint(door.Position.X, door.Position.Y), Color.White);
             }
 
             // Draw player
             // TODO: Introduce texture key in Entity class and paint all entities in one loop
-            spriteBatch.Draw(Textures[TextureKey.Player], new Vector2(gameState.Player.Position.X * TileSize, gameState.Player.Position.Y * TileSize), Color.White);
+            spriteBatch.Draw(Textures[TextureKey.Player], viewport.TranslatePoint(gameState.Player.Position.X, gameState.Player.Position.Y), Color.White);
 
             spriteBatch.End();
 

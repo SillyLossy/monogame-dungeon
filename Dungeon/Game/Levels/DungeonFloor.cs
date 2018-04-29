@@ -73,12 +73,11 @@ namespace Dungeon.Game.Levels
             }
         }
 
-        public MovableEntity AddEntity(Point? initialPosition = null)
+        public void PlacePlayer(Point? initialPosition = null)
         {
             Point position = initialPosition ?? RandomFreePoint;
-            var entity = new MovableEntity(position);
-            entities.Add(entity);
-            return entity;
+            var player = new Player(position);
+            entities.Add(player);
         }
 
         public bool CanEntityMove(MovableEntity entity, Direction direction)

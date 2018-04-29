@@ -34,7 +34,8 @@ namespace Dungeon.Game
         [JsonIgnore]
         public DungeonFloor CurrentFloor => floors[currentFloor];
 
-        public MovableEntity Player { get; set; }
+        [JsonIgnore]
+        public MovableEntity Player => CurrentFloor.Entities.OfType<Player>().FirstOrDefault();
 
         public DungeonGameState()
         {
@@ -50,7 +51,7 @@ namespace Dungeon.Game
                     DungeonFloor floor = DungeonGenerator.GenerateFloor((int)DateTime.UtcNow.Ticks, settings);
                     floors.Add(floor);
                 }
-                Player = CurrentFloor.AddEntity();
+                CurrentFloor.PlacePlayer();
             }
         }
 

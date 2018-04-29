@@ -8,12 +8,47 @@ namespace Dungeon.Game.Entities
 {
     public class MovableEntity : Entity
     {
-        public bool IsMoving { get; set; }
-        public Stack<Point> Path { get; set; }
+        public bool IsMoving { get; private set; }
+        public LinkedList<Point> Path { get; private set; }
 
         public MovableEntity(Point initialPosition) : base(initialPosition)
         {
-            Path = new Stack<Point>();
+            Path = new LinkedList<Point>();
+        }
+
+        private void MoveToDoor(DungeonFloor parent, Door target)
+        {
+            // if door is neighbor, just open it
+            if (parent.GetNeighbors(Position).Any(playerNeighbor => playerNeighbor == target.Position))
+            {
+                target.Open();
+                return;
+            }
+
+            // else find a shortest path to door and move to it
+            LinkedList<Point> shortestNeighborPath = null;
+            foreach (Point doorNeighbor in parent.GetNeighbors(target.Position))
+            {
+                var path = PathFinder.AStar(parent, Position, doorNeighbor);
+                if (path == null)
+                {
+                    continue;
+                }
+                if (shortestNeighborPath == null || path.Count < shortestNeighborPath.Count)
+                {
+                    shortestNeighborPath = path;
+                    shortestNeighborPath.AddLast(target.Position);
+                }
+            }
+
+            if (shortestNeighborPath == null)
+            {
+                // can't move, do nothing
+                return;
+            }
+            
+            Path = shortestNeighborPath;
+            IsMoving = true;
         }
 
         public void MoveTo(DungeonFloor parent, Point target)
@@ -23,7 +58,14 @@ namespace Dungeon.Game.Entities
                 return;
             }
 
-            Stack<Point> path = PathFinder.AStar(parent, Position, target);
+            var door = parent.Doors.FirstOrDefault(d => !d.IsOpen && d.Position == target);
+            if (door != null)
+            {
+                MoveToDoor(parent, door);
+                return;
+            }
+
+            var path = PathFinder.AStar(parent, Position, target);
             if (path == null)
             {
                 // can't move, do nothing
@@ -31,7 +73,6 @@ namespace Dungeon.Game.Entities
             }
 
             Path = path;
-
             IsMoving = true;
         }
 
@@ -42,7 +83,8 @@ namespace Dungeon.Game.Entities
                 return;
             }
 
-            Point newPos = Path.Pop();
+            Point newPos = Path.First.Value;
+            Path.RemoveFirst();
             CheckForDoor(parent, newPos);
             Position = newPos;
 

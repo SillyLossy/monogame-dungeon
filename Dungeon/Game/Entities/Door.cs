@@ -1,5 +1,4 @@
-﻿using Dungeon.Game.Levels;
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 
 namespace Dungeon.Game.Entities
 {
@@ -9,7 +8,7 @@ namespace Dungeon.Game.Entities
         {
         }
 
-        public bool IsOpen { get; private set; }
+        public bool IsOpen { get; set; }
 
         public void Open()
         {

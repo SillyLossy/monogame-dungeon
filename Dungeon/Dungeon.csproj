@@ -46,6 +46,7 @@
     <Compile Include="Game\DungeonGameState.cs" />
     <Compile Include="Game\Entities\Door.cs" />
     <Compile Include="Game\Entities\MovableEntity.cs" />
+    <Compile Include="Game\Entities\Player.cs" />
     <Compile Include="Game\Levels\DungeonGenerator.cs" />
     <Compile Include="Game\Entities\Entity.cs" />
     <Compile Include="Game\Levels\DungeonFloor.cs" />
@@ -54,6 +55,7 @@
     <Compile Include="Game\Levels\Join.cs" />
     <Compile Include="Game\DungeonGame.cs" />
     <Compile Include="Game\Levels\PathFinder.cs" />
+    <Compile Include="Game\Viewport2D.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="TextureKey.cs" />
