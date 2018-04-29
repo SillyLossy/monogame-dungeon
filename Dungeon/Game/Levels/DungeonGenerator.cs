@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Dungeon.Game.Entities;
+using Microsoft.Xna.Framework;
 
 namespace Dungeon.Game.Levels
 {
@@ -17,6 +19,7 @@ namespace Dungeon.Game.Levels
             var random = new Random(seed);
 
             var level = new DungeonTile[settings.Width, settings.Height];
+            var floor = new DungeonFloor(level, settings);
 
             // build an empty dungeon, blank the room and corridor lists
             for (int i = 0; i < settings.Width; i++)
@@ -152,6 +155,8 @@ namespace Dungeon.Game.Levels
                 }
             }
 
+            var doors = new Dictionary<Point, Door>();
+
             // paint doors
             foreach (var room in roomList)
             {
@@ -159,18 +164,85 @@ namespace Dungeon.Game.Levels
                 for (int x = 1; x < room.W - 1; x++)
                 {
                     int top1y = room.Y - 1;
-                    if (top1y <= 0 || level[room.X + x, top1y] == DungeonTile.Test)
+                    var position = new Point(room.X + x, top1y);
+                    if (top1y <= 0 || doors.ContainsKey(position))
                     {
                         break;
                     }
-                    if (level[room.X + x, top1y] == DungeonTile.Floor && level[room.X + x + 1, top1y] != DungeonTile.Floor && level[room.X + x - 1, top1y] != DungeonTile.Floor)
+                    if (level[room.X + x, top1y] == DungeonTile.Floor &&
+                        level[room.X + x + 1, top1y] != DungeonTile.Floor &&
+                        level[room.X + x - 1, top1y] != DungeonTile.Floor)
                     {
-                        level[room.X + x, top1y] = DungeonTile.Test;
+                        if (random.NextDouble() > 0.25)
+                        {
+                            doors.Add(position, new Door(position));
+                        }
+                    }
+                }
+                // paint bottom doors
+                for (int x = 1; x < room.W - 1; x++)
+                {
+                    int bottom1y = room.Y + room.H;
+                    var position = new Point(room.X + x, bottom1y);
+                    if (bottom1y >= settings.Height || doors.ContainsKey(position))
+                    {
+                        break;
+                    }
+                    if (level[room.X + x, bottom1y] == DungeonTile.Floor &&
+                        level[room.X + x + 1, bottom1y] != DungeonTile.Floor &&
+                        level[room.X + x - 1, bottom1y] != DungeonTile.Floor)
+                    {
+                        if (random.NextDouble() > 0.25)
+                        {
+                            doors.Add(position, new Door(position));
+                        }
+                    }
+                }
+                // paint left doors
+                for (int y = 1; y < room.H - 1; y++)
+                {
+                    int left1x = room.X - 1;
+                    var position = new Point(left1x, room.Y + y);
+                    if (left1x <= 0 || doors.ContainsKey(position))
+                    {
+                        break;
+                    }
+
+                    if (level[left1x, room.Y + y] == DungeonTile.Floor &&
+                        level[left1x, room.Y + y + 1] != DungeonTile.Floor &&
+                        level[left1x, room.Y + y - 1] != DungeonTile.Floor)
+                    {
+                        if (random.NextDouble() > 0.25)
+                        {
+                            doors.Add(position, new Door(position));
+                        }
+                    }
+                }
+                // paint right doors
+                for (int y = 1; y < room.H - 1; y++)
+                {
+                    int right1x = room.X + room.W;
+                    var position = new Point(right1x, room.Y + y);
+                    if (right1x <= 0 || doors.ContainsKey(position))
+                    {
+                        break;
+                    }
+
+                    if (level[right1x, room.Y + y] == DungeonTile.Floor &&
+                        level[right1x, room.Y + y + 1] != DungeonTile.Floor &&
+                        level[right1x, room.Y + y - 1] != DungeonTile.Floor)
+                    {
+                        if (random.NextDouble() > 0.25)
+                        {
+                            doors.Add(position, new Door(position));
+                        }
                     }
                 }
             }
 
-            return new DungeonFloor(level, settings);
+            floor.Doors = doors.Values.ToList();
+
+            return floor;
         }
 
         private class Room

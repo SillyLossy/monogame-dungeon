@@ -2,7 +2,6 @@
 
 namespace Dungeon.Game.Levels
 {
-    [Serializable]
     public class FloorSettings
     {
         public int Width { get; set; } = 64;

@@ -1,15 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Dungeon.Game.Entities;
 using Microsoft.Xna.Framework;
+using Newtonsoft.Json;
 
 namespace Dungeon.Game.Levels
 {
-    [Serializable]
     public class DungeonFloor
     {
         public DungeonTile[,] Tiles { get; }
 
+        [JsonIgnore]
         public Point RandomFreePoint
         {
             get
@@ -31,6 +33,7 @@ namespace Dungeon.Game.Levels
 
         public IEnumerable<Entity> Entities => entities;
         public FloorSettings Settings { get; }
+        public List<Door> Doors { get; set; }
 
         private static readonly Random random = new Random();
         private readonly List<Entity> entities;
@@ -59,23 +62,28 @@ namespace Dungeon.Game.Levels
                     int x = current.X + i, y = current.Y + j;
                     if (Tiles[x, y] == DungeonTile.Floor)
                     {
-                        yield return (new Point(x, y));
+                        var point = new Point(x, y);
+                        var closedDoor = Doors.FirstOrDefault(d => !d.IsOpen && d.Position == point);
+                        if (closedDoor == null)
+                        {
+                            yield return point;
+                        }
                     }
                 }
             }
         }
 
-        public Entity AddEntity(Point? initialPosition = null)
+        public MovableEntity AddEntity(Point? initialPosition = null)
         {
             Point position = initialPosition ?? RandomFreePoint;
-            var entity = new Entity(this, position);
+            var entity = new MovableEntity(position);
             entities.Add(entity);
             return entity;
         }
 
-        public bool CanEntityMove(Entity entity, Direction direction)
+        public bool CanEntityMove(MovableEntity entity, Direction direction)
         {
-            var newPos = Entity.NewPosition(direction, entity.Position);
+            var newPos = MovableEntity.NewPosition(direction, entity.Position);
             return Tiles[newPos.X, newPos.Y] == DungeonTile.Floor;
         }
     }

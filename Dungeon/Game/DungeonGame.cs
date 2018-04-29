@@ -4,7 +4,9 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using Newtonsoft.Json;
 
 namespace Dungeon.Game
 {
@@ -17,18 +19,34 @@ namespace Dungeon.Game
         private SpriteBatch spriteBatch;
 
         private const int TileSize = 8;
-        private const int UpdatesPerSecond = 5;
+        private const int UpdatesPerSecond = 15;
         private const double TimeBetweenUpdates = 1000d / UpdatesPerSecond;
+        private const string SaveFilePath = "Save.dgn";
         private MouseState? prevMouseState;
         private Point? selectedPoint;
         private Action inputAction;
         private Dictionary<object, Texture2D> Textures;
         private TimeSpan lastUpdate;
-        private DungeonGameState gameState;
+        private KeyboardState? prevKeyboardState;
+        private readonly DungeonGameState gameState;
 
-        public DungeonGame()
+        private static readonly JsonSerializerSettings SerializerSettings = new JsonSerializerSettings
         {
-            gameState = new DungeonGameState();
+            TypeNameHandling = TypeNameHandling.Auto
+        };
+
+    public DungeonGame()
+        {
+            try
+            {
+                gameState = File.Exists(SaveFilePath)
+                    ? JsonConvert.DeserializeObject<DungeonGameState>(File.ReadAllText(SaveFilePath), SerializerSettings)
+                    : new DungeonGameState(generateFloors: true);
+            }
+            catch (Exception ex)
+            {
+                gameState = new DungeonGameState(generateFloors: true);
+            }
             graphics = new GraphicsDeviceManager(this);
             Content.RootDirectory = "Content";
 
@@ -63,6 +81,8 @@ namespace Dungeon.Game
                 [DungeonTile.Stone] = Content.Load<Texture2D>(TextureKey.FromTile(DungeonTile.Stone)),
                 [DungeonTile.Wall] = Content.Load<Texture2D>(TextureKey.FromTile(DungeonTile.Wall)),
                 [TextureKey.Player] = Content.Load<Texture2D>(TextureKey.Player),
+                [TextureKey.OpenDoor] = Content.Load<Texture2D>(TextureKey.OpenDoor),
+                [TextureKey.ClosedDoor] = Content.Load<Texture2D>(TextureKey.ClosedDoor),
                 [TextureKey.Path] = CreateTexture(new Color(0, 255, 0, 50)),
                 [TextureKey.Target] = CreateTexture(Color.Green),
                 [DungeonTile.Test] = CreateTexture(Color.IndianRed)
@@ -82,6 +102,7 @@ namespace Dungeon.Game
         /// </summary>
         protected override void UnloadContent()
         {
+            File.WriteAllText(SaveFilePath, JsonConvert.SerializeObject(gameState, SerializerSettings));
             foreach (var pair in Textures)
             {
                 pair.Value.Dispose();
@@ -110,20 +131,12 @@ namespace Dungeon.Game
             if (inputAction != null || gameState.Player.IsMoving)
             {
                 inputAction?.Invoke();
-                DoSteps();
+                gameState.Step();
             }
 
             lastUpdate = gameTime.TotalGameTime;
             inputAction = null;
             base.Update(gameTime);
-        }
-        
-        private void DoSteps()
-        {
-            foreach (var entity in gameState.CurrentFloor.Entities.Where(e => e.IsMoving))
-            {
-                entity.Step();
-            }
         }
 
         private void HandleMouse()
@@ -146,40 +159,40 @@ namespace Dungeon.Game
 
         private void HandleKeyboard()
         {
-            var keyboard = Keyboard.GetState();
+            var keyboardState = Keyboard.GetState();
             Direction? direction = null;
 
-            if (keyboard.IsKeyDown(Keys.Left))
+            // prevent input if key is being hold
+            if (prevKeyboardState.HasValue && keyboardState == prevKeyboardState)
             {
-                direction  = Direction.West;
+                return;
             }
-            else if (keyboard.IsKeyDown(Keys.Right))
+
+            if (keyboardState.IsKeyDown(Keys.Left))
+            {
+                direction = Direction.West;
+            }
+            else if (keyboardState.IsKeyDown(Keys.Right))
             {
                 direction = (Direction.East);
             }
-            else if (keyboard.IsKeyDown(Keys.Up))
+            else if (keyboardState.IsKeyDown(Keys.Up))
             {
                 direction = (Direction.North);
             }
-            else if (keyboard.IsKeyDown(Keys.Down))
+            else if (keyboardState.IsKeyDown(Keys.Down))
             {
                 direction = (Direction.South);
             }
 
             if (direction.HasValue)
             {
-                inputAction = (() => MovePlayerByDirection(direction.Value));
-            }
-        }
-
-        private void MovePlayerByDirection(Direction direction)
-        {
-            if (gameState.CurrentFloor.CanEntityMove(gameState.Player, direction))
-            {
-                gameState.Player.MoveTo(direction);
+                inputAction = (() => gameState.MovePlayer(direction.Value));
             }
 
+            prevKeyboardState = keyboardState;
         }
+
 
         private void MovePlayerByClick(MouseState mouseState)
         {
@@ -190,10 +203,10 @@ namespace Dungeon.Game
             {
                 int x = mouseState.X / TileSize;
                 int y = mouseState.Y / TileSize;
-                Point? point = gameState.CurrentFloor.Tiles[x, y] == DungeonTile.Floor ? new Point(x, y) : (Point?)null;
-                if (point != null && point != selectedPoint)
+                var point = new Point(x, y);
+                if (point != selectedPoint)
                 {
-                    gameState.Player.MoveTo(point.Value);
+                    gameState.MovePlayer(point);
                     selectedPoint = point;
                 }
             }
@@ -213,7 +226,10 @@ namespace Dungeon.Game
             var level = gameState.CurrentFloor.Tiles;
             GraphicsDevice.Clear(Color.Black);
 
+            // Begin draw
             spriteBatch.Begin();
+
+            // Paint static tiles
             for (int x = 0; x < gameState.CurrentFloor.Settings.Width; x++)
             {
                 for (int y = 0; y < gameState.CurrentFloor.Settings.Height; y++)
@@ -221,6 +237,9 @@ namespace Dungeon.Game
                     spriteBatch.Draw(Textures[level[x, y]], new Vector2(x * TileSize, y * TileSize), Color.White);
                 }
             }
+
+            // Paint path for player
+            // TODO: Remove this after debugging
             if (selectedPoint != null)
             {
                 spriteBatch.Draw(Textures[TextureKey.Target], new Vector2(selectedPoint.Value.X * TileSize, selectedPoint.Value.Y * TileSize), Color.White);
@@ -232,9 +251,19 @@ namespace Dungeon.Game
                     }
                 }
             }
+
+            // Draw doors
+            foreach (var door in gameState.CurrentFloor.Doors)
+            {
+                var texture = Textures[door.IsOpen ? TextureKey.OpenDoor : TextureKey.ClosedDoor];
+                spriteBatch.Draw(texture, new Vector2(door.Position.X * TileSize, door.Position.Y * TileSize), Color.White);
+            }
+
+            // Draw player
+            // TODO: Introduce texture key in Entity class and paint all entities in one loop
             spriteBatch.Draw(Textures[TextureKey.Player], new Vector2(gameState.Player.Position.X * TileSize, gameState.Player.Position.Y * TileSize), Color.White);
+
             spriteBatch.End();
-            // TODO: Add your drawing code here
 
             base.Draw(gameTime);
         }
