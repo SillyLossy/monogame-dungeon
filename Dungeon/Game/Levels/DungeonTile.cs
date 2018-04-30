@@ -5,6 +5,8 @@
         Wall,
         Floor,
         Stone,
+        LadderUp,
+        LadderDown,
         Test
     }
 }

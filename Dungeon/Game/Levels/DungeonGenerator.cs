@@ -241,7 +241,34 @@ namespace Dungeon.Game.Levels
             }
 
             floor.Doors = doors.Values.ToList();
-            //var entrance = floor.RandomFreePoint
+
+            Point? exit = null;
+            Point? entrance = null;
+            do
+            {
+                try
+                {
+                    var entranceVariant = floor.RandomFreePoint;
+                    var exitVariant = floor.RandomFreePoint;
+
+                    if (entranceVariant == exitVariant ||
+                        PathFinder.AStar(floor, entranceVariant, exitVariant, ignoreEntities: true) == null ||
+                        !floor.GetNeighbors(entranceVariant).Any())
+                    {
+                        continue;
+                    }
+
+                    exit = exitVariant;
+                    entrance = entranceVariant;
+                }
+                catch
+                {
+                    // ignored
+                }
+            } while (exit == null || entrance == null);
+
+            floor.Tiles[exit.Value.X, exit.Value.Y] = DungeonTile.LadderDown;
+            floor.Tiles[entrance.Value.X, entrance.Value.Y] = DungeonTile.LadderUp;
 
             return floor;
         }

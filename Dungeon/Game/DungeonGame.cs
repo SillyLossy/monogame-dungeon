@@ -48,7 +48,12 @@ namespace Dungeon.Game
             {
                 gameState = new DungeonGameState(generateFloors: true);
             }
-            graphics = new GraphicsDeviceManager(this);
+
+            graphics = new GraphicsDeviceManager(this)
+            {
+                PreferredBackBufferWidth = (int) (GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Width * 0.9),
+                PreferredBackBufferHeight = (int) (GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Height * 0.9)
+            };
             Content.RootDirectory = "Content";
             viewport = new Viewport2D();
             CenterViewport();
@@ -72,7 +77,14 @@ namespace Dungeon.Game
         protected override void Initialize()
         {
             IsMouseVisible = true;
+            Window.AllowUserResizing = true;
+            // Window.ClientSizeChanged += Window_ClientSizeChanged;
             base.Initialize();
+        }
+
+        private void Window_ClientSizeChanged(object sender, EventArgs e)
+        {
+            throw new NotImplementedException();
         }
 
         /// <summary>
@@ -92,6 +104,8 @@ namespace Dungeon.Game
                 [TextureKey.Player] = Content.Load<Texture2D>(TextureKey.Player),
                 [TextureKey.OpenDoor] = Content.Load<Texture2D>(TextureKey.OpenDoor),
                 [TextureKey.ClosedDoor] = Content.Load<Texture2D>(TextureKey.ClosedDoor),
+                [DungeonTile.LadderUp] = Content.Load<Texture2D>(TextureKey.FromTile(DungeonTile.LadderUp)),
+                [DungeonTile.LadderDown] = Content.Load<Texture2D>(TextureKey.FromTile(DungeonTile.LadderDown)),
                 [TextureKey.Path] = CreateTexture(new Color(0, 255, 0, 50), 8, 8),
                 [TextureKey.Target] = CreateTexture(Color.Green, 8, 8),
                 [DungeonTile.Test] = CreateTexture(Color.IndianRed, 8, 8)
@@ -131,9 +145,9 @@ namespace Dungeon.Game
             if ((gameTime.TotalGameTime - lastUpdate).TotalMilliseconds < TimeBetweenUpdates)
             {
                 // This will record action in between the processed time frames
-                HandleViewport();
                 HandleMouse();
                 HandleKeyboard();
+                HandleViewport();
                 return;
             }
 
@@ -173,8 +187,12 @@ namespace Dungeon.Game
                     var oldPos = viewport.TranslateClick(prevState.X, prevState.Y);
                     int leftDelta = oldPos.X - newPos.X;
                     int topDelta = oldPos.Y - newPos.Y;
-                    viewport.Left -= leftDelta;
-                    viewport.Top -= topDelta;
+                    if (topDelta != 0 || leftDelta != 0)
+                    {
+                        viewport.Left -= leftDelta;
+                        viewport.Top -= topDelta;
+                        inputAction = null;
+                    }
                 }
             }
 
@@ -187,9 +205,9 @@ namespace Dungeon.Game
 
             if (prevMouseState.HasValue)
             {
-                if (prevMouseState.Value.LeftButton != mouseState.LeftButton)
+                if (prevMouseState.Value.LeftButton == ButtonState.Pressed)
                 {
-                    if (mouseState.LeftButton == ButtonState.Pressed)
+                    if (mouseState.LeftButton == ButtonState.Released)
                     {
                         inputAction = () => MovePlayerByClick(mouseState);
                     }
@@ -241,7 +259,7 @@ namespace Dungeon.Game
             var bufferRect = new Rectangle(0, 0, graphics.PreferredBackBufferWidth, graphics.PreferredBackBufferHeight);
 
             // prevent processing mouse outside the window
-            if (mouseState.LeftButton == ButtonState.Pressed && bufferRect.Contains(mouseState.X, mouseState.Y))
+            if (bufferRect.Contains(mouseState.X, mouseState.Y))
             {
                 var point = viewport.TranslateClick(mouseState.X, mouseState.Y);
                 if (point != selectedPoint)

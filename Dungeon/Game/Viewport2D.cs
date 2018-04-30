@@ -5,12 +5,11 @@ namespace Dungeon.Game
 {
     public class Viewport2D
     {
-        private int left;
-        private int top;
-        public float Scale { get; set; } = 2f;
-        private const float MinScale = 0.5f;
-        private const float MaxScale = 8f;
+        private float Scale { get; set; } = 2f;
+        private const float MinScale = 1f;
+        private const float MaxScale = 16f;
         private const int TileSize = 8;
+        private const float ScaleIncrement = 1.5f;
 
         public void UpScale()
         {
@@ -18,7 +17,7 @@ namespace Dungeon.Game
             {
                 return;
             }
-            Scale *= 2f;
+            Scale *= ScaleIncrement;
         }
 
         public void DownScale()
@@ -27,37 +26,30 @@ namespace Dungeon.Game
             {
                 return;
             }
-            Scale /= 2f;
+            Scale /= ScaleIncrement;
         }
 
-        public int Left
-        {
-            get => left;
-            set => left = value;
-        }
+        public int Left { get; set; }
 
-        public int Top
-        {
-            get => top;
-            set => top = value;
-        }
+        public int Top { get; set; }
 
         public Tuple<int, int> ToTileSize(int w, int h)
         {
-            return new Tuple<int, int>((int) Math.Round(w / (Scale * TileSize)), (int) Math.Round(h / (Scale * TileSize)));
-        } 
+            return new Tuple<int, int>((int)Math.Round(w / (Scale * TileSize)), (int)Math.Round(h / (Scale * TileSize)));
+        }
 
         public Rectangle TranslatePoint(int x, int y)
         {
-            return new Rectangle((int) ((x + Left) * Scale * TileSize),
-                                 (int) ((y + Top) * Scale * TileSize),
-                                 (int) (Scale * TileSize), (int) (Scale * TileSize));
+            return new Rectangle((int)Math.Ceiling((x + Left) * Scale * TileSize),
+                                 (int)Math.Ceiling((y + Top) * Scale * TileSize),
+                                 (int)Math.Ceiling(Scale * TileSize),
+                                 (int)Math.Ceiling(Scale * TileSize));
         }
 
         public Point TranslateClick(int x, int y)
         {
-            return new Point(((int) Math.Floor((x / (Scale * TileSize))) - Left),
-                             ((int) Math.Floor((y / (Scale * TileSize))) - Top));
+            return new Point(((int)Math.Floor((double) x / (Scale * TileSize)) - Left),
+                             ((int)Math.Floor((double) y / (Scale * TileSize)) - Top));
         }
     }
 }

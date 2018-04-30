@@ -6,12 +6,12 @@ using Microsoft.Xna.Framework;
 
 namespace Dungeon.Game.Entities
 {
-    public class MovableEntity : Entity
+    public abstract class MovableEntity : Entity
     {
         public bool IsMoving { get; private set; }
         public LinkedList<Point> Path { get; private set; }
 
-        public MovableEntity(Point initialPosition) : base(initialPosition)
+        protected MovableEntity(Point initialPosition) : base(initialPosition)
         {
             Path = new LinkedList<Point>();
         }
@@ -104,7 +104,7 @@ namespace Dungeon.Game.Entities
             Position = newPos;
         }
 
-        private void CheckForDoor(DungeonFloor parent, Point newPos)
+        private static void CheckForDoor(DungeonFloor parent, Point newPos)
         {
             Door closedDoor = parent.Doors.FirstOrDefault(d => !d.IsOpen && d.Position == newPos);
             closedDoor?.Open();

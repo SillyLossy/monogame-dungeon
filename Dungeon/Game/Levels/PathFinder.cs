@@ -71,7 +71,7 @@ namespace Dungeon.Game.Levels
             return result;
         }
 
-        public static LinkedList<Point> AStar(DungeonFloor floor, Point start, Point goal)
+        public static LinkedList<Point> AStar(DungeonFloor floor, Point start, Point goal, bool ignoreEntities = false)
         {
             // The set of nodes already evaluated
             var closedSet = new HashSet<Point>();
@@ -105,7 +105,7 @@ namespace Dungeon.Game.Levels
 
                 openSet.Remove(current);
                 closedSet.Add(current);
-                foreach (var neighbor in floor.GetNeighbors(current).Where(neighbor => !closedSet.Contains(neighbor)))
+                foreach (var neighbor in floor.GetNeighbors(current, ignoreEntities).Where(neighbor => !closedSet.Contains(neighbor)))
                 {
                     if (!openSet.Contains(neighbor)) // Discover a new node
                     {

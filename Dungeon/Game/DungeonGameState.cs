@@ -46,11 +46,8 @@ namespace Dungeon.Game
         {
             if (generateFloors)
             {
-                foreach (FloorSettings settings in PredefinedSettings)
-                {
-                    DungeonFloor floor = DungeonGenerator.GenerateFloor((int)DateTime.UtcNow.Ticks, settings);
-                    floors.Add(floor);
-                }
+                floors = PredefinedSettings.Select(settings => DungeonGenerator.GenerateFloor((int) DateTime.UtcNow.Ticks, settings)).ToList();
+
                 CurrentFloor.PlacePlayer();
             }
         }
