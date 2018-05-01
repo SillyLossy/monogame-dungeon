@@ -17,7 +17,7 @@ namespace Dungeon.Game
     {
         private readonly GraphicsDeviceManager graphics;
         private SpriteBatch spriteBatch;
-        
+
         private const int UpdatesPerSecond = 15;
         private const double TimeBetweenUpdates = 1000d / UpdatesPerSecond;
         private const string SaveFilePath = "Save.dgn";
@@ -30,6 +30,7 @@ namespace Dungeon.Game
         private KeyboardState? prevKeyboardState;
         private readonly DungeonGameState gameState;
         private readonly Viewport2D viewport;
+        private static readonly Color SeenTileColor = new Color(100, 100, 100, 100);
 
         private static readonly JsonSerializerSettings SerializerSettings = new JsonSerializerSettings
         {
@@ -51,8 +52,8 @@ namespace Dungeon.Game
 
             graphics = new GraphicsDeviceManager(this)
             {
-                PreferredBackBufferWidth = (int) (GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Width * 0.9),
-                PreferredBackBufferHeight = (int) (GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Height * 0.9)
+                PreferredBackBufferWidth = (int)(GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Width * 0.9),
+                PreferredBackBufferHeight = (int)(GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Height * 0.9)
             };
             Content.RootDirectory = "Content";
             viewport = new Viewport2D();
@@ -78,13 +79,7 @@ namespace Dungeon.Game
         {
             IsMouseVisible = true;
             Window.AllowUserResizing = true;
-            // Window.ClientSizeChanged += Window_ClientSizeChanged;
             base.Initialize();
-        }
-
-        private void Window_ClientSizeChanged(object sender, EventArgs e)
-        {
-            throw new NotImplementedException();
         }
 
         /// <summary>
@@ -203,15 +198,9 @@ namespace Dungeon.Game
         {
             var mouseState = Mouse.GetState(Window);
 
-            if (prevMouseState.HasValue)
+            if (prevMouseState?.LeftButton == ButtonState.Pressed && mouseState.LeftButton == ButtonState.Released)
             {
-                if (prevMouseState.Value.LeftButton == ButtonState.Pressed)
-                {
-                    if (mouseState.LeftButton == ButtonState.Released)
-                    {
-                        inputAction = () => MovePlayerByClick(mouseState);
-                    }
-                }
+                inputAction = () => MovePlayerByClick(mouseState);
             }
 
             prevMouseState = mouseState;
@@ -287,43 +276,61 @@ namespace Dungeon.Game
             // Begin draw
             spriteBatch.Begin(samplerState: SamplerState.PointClamp);
 
-            // Paint static tiles
-            for (int x = 0; x < gameState.CurrentFloor.Settings.Width; x++)
+
+            var visible = gameState.Player.GetVisiblePoints(gameState.CurrentFloor);
+            foreach (var point in visible)
             {
-                for (int y = 0; y < gameState.CurrentFloor.Settings.Height; y++)
+                spriteBatch.Draw(Textures[level[point.X, point.Y]], viewport.TranslatePoint(point.X, point.Y),
+                    Color.White);
+            }
+
+            DrawDoors(visible, Color.White);
+            foreach (var point in gameState.Player.SeenPoints)
+            {
+                if (!visible.Contains(point))
                 {
-                    spriteBatch.Draw(Textures[level[x, y]], viewport.TranslatePoint(x, y), Color.White);
+                    spriteBatch.Draw(Textures[level[point.X, point.Y]], viewport.TranslatePoint(point.X, point.Y), SeenTileColor);
                 }
             }
+
+            DrawDoors(gameState.Player.SeenPoints, SeenTileColor);
 
             // Paint path for player
             // TODO: Remove this after debugging
             if (selectedPoint != null)
             {
-                spriteBatch.Draw(Textures[TextureKey.Target], viewport.TranslatePoint(selectedPoint.Value.X, selectedPoint.Value.Y), Color.White);
+                spriteBatch.Draw(Textures[TextureKey.Target],
+                    viewport.TranslatePoint(selectedPoint.Value.X, selectedPoint.Value.Y), Color.White);
                 if (gameState.Player.Path != null)
                 {
                     foreach (var point in gameState.Player.Path)
                     {
-                        spriteBatch.Draw(Textures[TextureKey.Path], viewport.TranslatePoint(point.X, point.Y), Color.White);
+                        spriteBatch.Draw(Textures[TextureKey.Path], viewport.TranslatePoint(point.X, point.Y),
+                            Color.White);
                     }
                 }
             }
 
-            // Draw doors
-            foreach (var door in gameState.CurrentFloor.Doors)
-            {
-                var texture = Textures[door.IsOpen ? TextureKey.OpenDoor : TextureKey.ClosedDoor];
-                spriteBatch.Draw(texture, viewport.TranslatePoint(door.Position.X, door.Position.Y), Color.White);
-            }
-
             // Draw player
             // TODO: Introduce texture key in Entity class and paint all entities in one loop
-            spriteBatch.Draw(Textures[TextureKey.Player], viewport.TranslatePoint(gameState.Player.Position.X, gameState.Player.Position.Y), Color.White);
+            spriteBatch.Draw(Textures[TextureKey.Player],
+                viewport.TranslatePoint(gameState.Player.Position.X, gameState.Player.Position.Y), Color.White);
 
             spriteBatch.End();
-
+            
             base.Draw(gameTime);
+        }
+
+        void DrawDoors(HashSet<Point> visiblePoints, Color color)
+        {
+            foreach (var door in gameState.CurrentFloor.Doors)
+            {
+                if (visiblePoints.Contains(door.Position))
+                {
+                    Texture2D texture = Textures[door.IsOpen ? TextureKey.OpenDoor : TextureKey.ClosedDoor];
+                    spriteBatch.Draw(texture, viewport.TranslatePoint(door.Position.X, door.Position.Y), color);
+                }
+            }
         }
     }
 }

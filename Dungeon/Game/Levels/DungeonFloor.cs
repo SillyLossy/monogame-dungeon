@@ -39,30 +39,31 @@ namespace Dungeon.Game.Levels
         public FloorSettings Settings { get; }
         public List<Door> Doors { get; set; }
 
-        public Point InitialPlayerPosition
+        public Point RandomEntranceNeighbor => RandomNeighborOfTile(DungeonTile.LadderUp);
+        public Point RandomExitNeighbor => RandomNeighborOfTile(DungeonTile.LadderDown);
+
+        private Point RandomNeighborOfTile(DungeonTile tile)
         {
-            get
+
+            Point? entrancePoint = null;
+            for (int x = 0; x < Settings.Width; x++)
             {
-                Point? entrancePoint = null;
-                for (int x = 0; x < Settings.Width; x++)
+                for (int y = 0; y < Settings.Height; y++)
                 {
-                    for (int y = 0; y < Settings.Height; y++)
+                    if (Tiles[x, y] == tile)
                     {
-                        if (Tiles[x, y] == DungeonTile.LadderUp)
-                        {
-                            entrancePoint = new Point(x, y);
-                        }
+                        entrancePoint = new Point(x, y);
                     }
                 }
-
-                if (entrancePoint == null)
-                {
-                    throw new Exception("No entrances on level!");
-                }
-
-                var entranceNeighbors = GetNeighbors(entrancePoint.Value).ToArray();
-                return entranceNeighbors[random.Next(entranceNeighbors.Length)];
             }
+
+            if (entrancePoint == null)
+            {
+                throw new Exception("No entrances on level!");
+            }
+
+            var entranceNeighbors = GetNeighbors(entrancePoint.Value).ToArray();
+            return entranceNeighbors[random.Next(entranceNeighbors.Length)];
         }
 
         private static readonly Random random = new Random();
@@ -112,17 +113,34 @@ namespace Dungeon.Game.Levels
             }
         }
 
-        public void PlacePlayer(Point? initialPosition = null)
+        public void PlacePlayer(Player player)
         {
-            Point position = initialPosition ?? InitialPlayerPosition;
-            var player = new Player(position);
             entities.Add(player);
+        }
+
+        public Player RemovePlayer(Player player)
+        {
+            entities.Remove(player);
+            return player;
         }
 
         public bool CanEntityMove(MovableEntity entity, Direction direction)
         {
             var newPos = MovableEntity.NewPosition(direction, entity.Position);
             return Tiles[newPos.X, newPos.Y] == DungeonTile.Floor;
+        }
+
+        public virtual bool Contains(int x, int y)
+        {
+            return x >= 0 && x < Settings.Width &&
+                   y >= 0 && y < Settings.Height;
+        }
+
+        public virtual bool IsTransparent(int x, int y)
+        {
+            return !(Doors.Find(d => !d.IsOpen && d.Position.X == x && d.Position.Y == y) != null ||
+                     Tiles[x, y] == DungeonTile.Stone ||
+                     Tiles[x, y] == DungeonTile.Wall);
         }
     }
 }

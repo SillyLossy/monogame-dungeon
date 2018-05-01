@@ -10,7 +10,7 @@ namespace Dungeon.Game
 {
     public class DungeonGameState
     {
-        private static readonly IEnumerable<FloorSettings> PredefinedSettings = new List<FloorSettings>
+        private static readonly IReadOnlyList<FloorSettings> PredefinedSettings = new List<FloorSettings>
         {
             new FloorSettings
             {
@@ -29,35 +29,55 @@ namespace Dungeon.Game
         private readonly List<DungeonFloor> floors = new List<DungeonFloor>();
 
         [JsonProperty]
-        private readonly int currentFloor = 0;
+        private int currentFloor = 0;
 
         [JsonIgnore]
         public DungeonFloor CurrentFloor => floors[currentFloor];
 
         [JsonIgnore]
-        public MovableEntity Player => CurrentFloor.Entities.OfType<Player>().FirstOrDefault();
+        public Player Player => CurrentFloor.Entities.OfType<Player>().FirstOrDefault();
+
+        [JsonProperty]
+        private Dictionary<int, HashSet<Point>> seenPoints = new Dictionary<int, HashSet<Point>>();
+        
+        private static int NewSeed => (int) DateTime.UtcNow.Ticks;
 
         public DungeonGameState()
         {
-
         }
 
         public DungeonGameState(bool generateFloors = false)
         {
             if (generateFloors)
             {
-                floors = PredefinedSettings.Select(settings => DungeonGenerator.GenerateFloor((int) DateTime.UtcNow.Ticks, settings)).ToList();
-
-                CurrentFloor.PlacePlayer();
+                for (int i = 0; i < PredefinedSettings.Count; i++)
+                {
+                    GenerateFloor(i, PredefinedSettings[i]);
+                }
+                CurrentFloor.PlacePlayer(new Player(CurrentFloor.RandomEntranceNeighbor));
+                Player.SeenPoints = seenPoints[currentFloor];
+                Player.SteppedOnLadder += ChangeFloor;
             }
+        }
+
+        private void GenerateFloor(int index, FloorSettings settings)
+        {
+            floors.Add(DungeonGenerator.GenerateFloor(NewSeed, settings));
+            seenPoints.Add(index, new HashSet<Point>());
         }
 
         // Advances the game state forward in time
         public void Step()
         {
-            foreach (var entity in CurrentFloor.Entities.OfType<MovableEntity>().Where(e => e.IsMoving))
+            try
             {
-                entity.Step(CurrentFloor);
+                foreach (var entity in CurrentFloor.Entities.OfType<MovableEntity>().Where(e => e.IsMoving))
+                {
+                    entity.Step(CurrentFloor);
+                }
+            }
+            catch (InvalidOperationException)
+            {
             }
         }
         
@@ -72,7 +92,50 @@ namespace Dungeon.Game
 
         public void MovePlayer(Point point)
         {
-            Player.MoveTo(CurrentFloor, point);
+            if (point.X < CurrentFloor.Settings.Width && point.Y < CurrentFloor.Settings.Height && point.Y >= 0 && point.X >= 0)
+            {
+                if (Player.SeenPoints.Contains(point))
+                {
+                    Player.MoveTo(CurrentFloor, point);
+                }
+            }
+        }
+
+        private void ChangeFloor(object sender, DungeonTile ladder)
+        {
+            // only player can change floors (sanity check)
+            if (sender is Player player)
+            {
+                player.Path.Clear();
+                player.IsMoving = false;
+                if (ladder == DungeonTile.LadderUp)
+                {
+                    if (currentFloor - 1 < 0)
+                    {
+                        // don't let him escape : )
+                        return;
+                    }
+
+                    CurrentFloor.RemovePlayer(player);
+                    currentFloor--;
+                    player.Position = CurrentFloor.RandomExitNeighbor;
+                    player.SeenPoints = seenPoints[currentFloor];
+                    CurrentFloor.PlacePlayer(player);
+                }
+                else if (ladder == DungeonTile.LadderDown)
+                {
+                    if (currentFloor + 1 >= floors.Count)
+                    {
+                        GenerateFloor(currentFloor + 1, new FloorSettings());
+                    }
+
+                    CurrentFloor.RemovePlayer(player);
+                    currentFloor++;
+                    player.Position = CurrentFloor.RandomEntranceNeighbor;
+                    player.SeenPoints = seenPoints[currentFloor];
+                    CurrentFloor.PlacePlayer(player);
+                }
+            }
         }
     }
 }

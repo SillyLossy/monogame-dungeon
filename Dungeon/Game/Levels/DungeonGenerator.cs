@@ -253,7 +253,8 @@ namespace Dungeon.Game.Levels
 
                     if (entranceVariant == exitVariant ||
                         PathFinder.AStar(floor, entranceVariant, exitVariant, ignoreEntities: true) == null ||
-                        !floor.GetNeighbors(entranceVariant).Any())
+                        !floor.GetNeighbors(entranceVariant).Any() ||
+                        floor.Doors.Find(d => d.Position == exitVariant || d.Position == entranceVariant) != null)
                     {
                         continue;
                     }

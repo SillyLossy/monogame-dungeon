@@ -47,6 +47,11 @@
     <Compile Include="Game\Entities\Door.cs" />
     <Compile Include="Game\Entities\MovableEntity.cs" />
     <Compile Include="Game\Entities\Player.cs" />
+    <Compile Include="Game\FOV\PermissiveFov.cs" />
+    <Compile Include="Game\FOV\Line.cs" />
+    <Compile Include="Game\FOV\View.cs" />
+    <Compile Include="Game\FOV\ViewBump.cs" />
+    <Compile Include="Game\Levels\DictionaryExtensions.cs" />
     <Compile Include="Game\TextGameLog.cs" />
     <Compile Include="Game\Levels\DungeonGenerator.cs" />
     <Compile Include="Game\Entities\Entity.cs" />
