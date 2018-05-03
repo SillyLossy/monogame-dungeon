@@ -42,16 +42,33 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Game\Common\ListExtensions.cs" />
     <Compile Include="Game\Direction.cs" />
     <Compile Include="Game\DungeonGameState.cs" />
+    <Compile Include="Game\Entities\Armor.cs" />
     <Compile Include="Game\Entities\Door.cs" />
-    <Compile Include="Game\Entities\MovableEntity.cs" />
+    <Compile Include="Game\Entities\Character.cs" />
+    <Compile Include="Game\Entities\Effect.cs" />
+    <Compile Include="Game\Entities\EquipSlot.cs" />
+    <Compile Include="Game\Entities\GameObject.cs" />
+    <Compile Include="Game\Entities\Inventory.cs" />
+    <Compile Include="Game\Entities\Item.cs" />
+    <Compile Include="Game\Entities\ItemTrait.cs" />
+    <Compile Include="Game\Entities\Monster.cs" />
+    <Compile Include="Game\Entities\MonsterFactory.cs" />
     <Compile Include="Game\Entities\Player.cs" />
+    <Compile Include="Game\Entities\PrimaryAttributes.cs" />
+    <Compile Include="Game\Entities\Range.cs" />
+    <Compile Include="Game\Entities\Rarity.cs" />
+    <Compile Include="Game\Entities\Skill.cs" />
+    <Compile Include="Game\Entities\StackedItem.cs" />
+    <Compile Include="Game\Entities\Weapon.cs" />
+    <Compile Include="Game\Entities\WeaponTrait.cs" />
     <Compile Include="Game\FOV\PermissiveFov.cs" />
     <Compile Include="Game\FOV\Line.cs" />
     <Compile Include="Game\FOV\View.cs" />
     <Compile Include="Game\FOV\ViewBump.cs" />
-    <Compile Include="Game\Levels\DictionaryExtensions.cs" />
+    <Compile Include="Game\Common\DictionaryExtensions.cs" />
     <Compile Include="Game\TextGameLog.cs" />
     <Compile Include="Game\Levels\DungeonGenerator.cs" />
     <Compile Include="Game\Entities\Entity.cs" />
@@ -64,7 +81,7 @@
     <Compile Include="Game\Viewport2D.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="TextureKey.cs" />
+    <Compile Include="Game\TextureKey.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="MonoGame.Framework">

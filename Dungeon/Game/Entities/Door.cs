@@ -1,10 +1,11 @@
 ﻿using Microsoft.Xna.Framework;
+using Newtonsoft.Json;
 
 namespace Dungeon.Game.Entities
 {
     public class Door : Entity
     {
-        public Door(Point initialPosition) : base(initialPosition)
+        public Door(Point initialPosition) : base(string.Empty, initialPosition)
         {
         }
 
@@ -19,5 +20,8 @@ namespace Dungeon.Game.Entities
         {
             IsOpen = false;
         }
+
+        [JsonIgnore]
+        public override string TextureKey => IsOpen ? Game.TextureKey.DoorOpen : Game.TextureKey.DoorClosed;
     }
 }

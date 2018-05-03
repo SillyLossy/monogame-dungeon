@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Dungeon.Game.Levels
+namespace Dungeon.Game.Common
 {
     public static class DictionaryExtensions
     {

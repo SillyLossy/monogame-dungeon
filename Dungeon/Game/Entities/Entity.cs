@@ -2,11 +2,11 @@
 
 namespace Dungeon.Game.Entities
 {
-    public abstract class Entity
+    public abstract class Entity : GameObject
     {
         public Point Position { get; set; }
 
-        public Entity(Point initialPosition)
+        protected Entity(string textureKey, Point initialPosition) : base(textureKey)
         {
             Position = initialPosition;
         }

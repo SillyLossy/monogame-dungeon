@@ -5,10 +5,10 @@ namespace Dungeon.Game
 {
     public class Viewport2D
     {
-        private float Scale { get; set; } = 2f;
+        private float Scale { get; set; } = 1f;
         private const float MinScale = 1f;
         private const float MaxScale = 16f;
-        private const int TileSize = 8;
+        private const int TileSize = 32;
         private const float ScaleIncrement = 1.5f;
 
         public void UpScale()
@@ -32,6 +32,7 @@ namespace Dungeon.Game
         public int Left { get; set; }
 
         public int Top { get; set; }
+        public bool IsDragged { get; set; }
 
         public Tuple<int, int> ToTileSize(int w, int h)
         {
@@ -46,7 +47,7 @@ namespace Dungeon.Game
                                  (int)Math.Ceiling(Scale * TileSize));
         }
 
-        public Point TranslateClick(int x, int y)
+        public Point TranslateMouse(int x, int y)
         {
             return new Point(((int)Math.Floor((double) x / (Scale * TileSize)) - Left),
                              ((int)Math.Floor((double) y / (Scale * TileSize)) - Top));

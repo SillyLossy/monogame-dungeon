@@ -12,21 +12,23 @@ namespace Dungeon.Game
     {
         private static readonly IReadOnlyList<FloorSettings> PredefinedSettings = new List<FloorSettings>
         {
-            new FloorSettings
+            new FloorSettings(1)
             {
-                Width = 32,
-                Height = 32,
-                MaxRooms = 5,
-                MaxRoomXy = 10,
-                MinRoomXy = 5,
-                RandomConnections = 2,
-                RandomSpurs = 2,
-                RoomsOverlap = false
+                Width = 64,
+                Height = 64,
+                MaxRooms = 10,
+                MaxRoomXy = 15,
+                MinRoomXy = 7,
+                RandomConnections = 4,
+                RandomSpurs = 4,
+                RoomsOverlap = false,
+                MaxMonsters = 10,
+                MinMonsters = 4
             }
         }.AsReadOnly();
 
         [JsonProperty]
-        private readonly List<DungeonFloor> floors = new List<DungeonFloor>();
+        private List<DungeonFloor> floors = new List<DungeonFloor>();
 
         [JsonProperty]
         private int currentFloor = 0;
@@ -35,29 +37,36 @@ namespace Dungeon.Game
         public DungeonFloor CurrentFloor => floors[currentFloor];
 
         [JsonIgnore]
-        public Player Player => CurrentFloor.Entities.OfType<Player>().FirstOrDefault();
+        public Character Player => CurrentFloor.Characters.OfType<Player>().FirstOrDefault();
 
         [JsonProperty]
         private Dictionary<int, HashSet<Point>> seenPoints = new Dictionary<int, HashSet<Point>>();
-        
-        private static int NewSeed => (int) DateTime.UtcNow.Ticks;
 
-        public DungeonGameState()
-        {
-        }
+        private static int NewSeed => (int)DateTime.UtcNow.Ticks;
 
-        public DungeonGameState(bool generateFloors = false)
+        public DungeonGameState NewGame()
         {
-            if (generateFloors)
+            for (int i = 0; i < PredefinedSettings.Count; i++)
             {
-                for (int i = 0; i < PredefinedSettings.Count; i++)
-                {
-                    GenerateFloor(i, PredefinedSettings[i]);
-                }
-                CurrentFloor.PlacePlayer(new Player(CurrentFloor.RandomEntranceNeighbor));
-                Player.SeenPoints = seenPoints[currentFloor];
-                Player.SteppedOnLadder += ChangeFloor;
+                GenerateFloor(i, PredefinedSettings[i]);
             }
+            CurrentFloor.PlacePlayer(
+                new Player(
+                    "Player",
+                    TextureKey.Player,
+                    new PrimaryAttributes
+                    {
+                        Agility = 5,
+                        Charisma = 5,
+                        Endurance = 5,
+                        Intelligence = 5,
+                        Luck = 5,
+                        Perception = 5,
+                        Strength = 5
+                    },
+                    CurrentFloor.RandomEntranceNeighbor));
+            Player.SeenPoints = seenPoints[currentFloor];
+            return this;
         }
 
         private void GenerateFloor(int index, FloorSettings settings)
@@ -69,25 +78,18 @@ namespace Dungeon.Game
         // Advances the game state forward in time
         public void Step()
         {
-            try
+            foreach (var entity in CurrentFloor.Characters.OrderByDescending(c => c.Sequence))
             {
-                foreach (var entity in CurrentFloor.Entities.OfType<MovableEntity>().Where(e => e.IsMoving))
-                {
-                    entity.Step(CurrentFloor);
-                }
-            }
-            catch (InvalidOperationException)
-            {
+                entity.Step(CurrentFloor);
             }
         }
-        
+
         public void MovePlayer(Direction direction)
         {
             if (CurrentFloor.CanEntityMove(Player, direction))
             {
                 Player.MoveTo(CurrentFloor, direction);
             }
-
         }
 
         public void MovePlayer(Point point)
@@ -96,46 +98,61 @@ namespace Dungeon.Game
             {
                 if (Player.SeenPoints.Contains(point))
                 {
-                    Player.MoveTo(CurrentFloor, point);
+                    if (point == Player.Position)
+                    {
+                        if (CurrentFloor.Tiles[point.X, point.Y] == DungeonTile.LadderDown)
+                        {
+                            Descend();
+                        }
+                        else if (CurrentFloor.Tiles[point.X, point.Y] == DungeonTile.LadderUp)
+                        {
+                            Ascend();
+                        }
+                    }
+                    else
+                    {
+                        Player.MoveTo(CurrentFloor, point);
+                    }
                 }
             }
         }
 
-        private void ChangeFloor(object sender, DungeonTile ladder)
+        public void Ascend()
         {
-            // only player can change floors (sanity check)
-            if (sender is Player player)
+            if (CurrentFloor.Tiles[Player.Position.X, Player.Position.Y] == DungeonTile.LadderUp)
             {
-                player.Path.Clear();
-                player.IsMoving = false;
-                if (ladder == DungeonTile.LadderUp)
+                if (currentFloor - 1 < 0)
                 {
-                    if (currentFloor - 1 < 0)
-                    {
-                        // don't let him escape : )
-                        return;
-                    }
-
-                    CurrentFloor.RemovePlayer(player);
-                    currentFloor--;
-                    player.Position = CurrentFloor.RandomExitNeighbor;
-                    player.SeenPoints = seenPoints[currentFloor];
-                    CurrentFloor.PlacePlayer(player);
+                    // don't let him escape : )
+                    return;
                 }
-                else if (ladder == DungeonTile.LadderDown)
-                {
-                    if (currentFloor + 1 >= floors.Count)
-                    {
-                        GenerateFloor(currentFloor + 1, new FloorSettings());
-                    }
 
-                    CurrentFloor.RemovePlayer(player);
-                    currentFloor++;
-                    player.Position = CurrentFloor.RandomEntranceNeighbor;
-                    player.SeenPoints = seenPoints[currentFloor];
-                    CurrentFloor.PlacePlayer(player);
-                }
+                ReplacePlayer(currentFloor - 1);
+                CurrentFloor.GenerateMonsters(isFirstEnter: false);
             }
+        }
+
+        public void Descend()
+        {
+            if (CurrentFloor.Tiles[Player.Position.X, Player.Position.Y] == DungeonTile.LadderDown)
+            {
+                if (currentFloor + 1 >= floors.Count)
+                {
+                    GenerateFloor(currentFloor + 1, new FloorSettings(currentFloor + 2));
+                }
+
+                ReplacePlayer(currentFloor + 1);
+                CurrentFloor.GenerateMonsters(isFirstEnter: false);
+            }
+        }
+
+        private void ReplacePlayer(int newFloor)
+        {
+            Character player = CurrentFloor.RemovePlayer(Player);
+            currentFloor = newFloor;
+            player.Position = CurrentFloor.RandomEntranceNeighbor;
+            player.SeenPoints = seenPoints[currentFloor];
+            CurrentFloor.PlacePlayer(player);
         }
     }
 }

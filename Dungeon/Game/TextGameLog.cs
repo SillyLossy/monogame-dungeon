@@ -1,51 +1,76 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
+using Dungeon.Game.Entities;
 
 namespace Dungeon.Game
 {
-    class TextGameLog
+    public class TextGameLog
     {
-        private const int MaxLineLenght = 5;
-        private const int MaxLines = 5;
-
         private readonly LinkedList<string> lines = new LinkedList<string>();
-
-        private void PushShortLine(string line)
-        {
-            if (lines.Count + 1 > MaxLines)
-            {
-                lines.RemoveFirst();
-            }
-            lines.AddLast(line);
-        }
 
         public void PushLine(string line)
         {
-            if (line.Length <= MaxLineLenght)
-            {
-                PushShortLine(line);
-            }
-            else
-            {
-                PushLongLine(line);
-            }
-
+            lines.AddLast(line);
         }
 
-        private void PushLongLine(string line)
+        public IEnumerable<string> GetLastLines(int count)
         {
-            var sb = new StringBuilder(line);
+            return lines.Skip(Math.Max(0, lines.Count - count));
+        }
 
-            for (int i = 0; i < line.Length / MaxLineLenght + 1; i++)
+        public void LogAttack(AttackResult result)
+        {
+            lines.AddLast(result.Attacker is Player ? DescribePlayerAttack(result) : DescribeMonsterAttack(result));
+        }
+
+        private static string DescribeMonsterAttack(AttackResult result)
+        {
+            var sb = new StringBuilder(40);
+
+            foreach (var blow in result.Blows)
             {
-                sb.Insert(i * MaxLineLenght, value: '\n');
+                if (blow.IsMiss)
+                {
+                    sb.AppendFormat("{0} misses. ", result.Attacker.Name);
+                }
+                else
+                {
+                    sb.AppendFormat("{0} have dealt {1} damage to you. ", result.Attacker.Name, blow.Damage);
+                }
             }
 
-            foreach (string substring in sb.ToString().Split('\n'))
+            if (result.Target.IsDead)
             {
-                PushShortLine(substring);
+                sb.AppendFormat("{0} deals a killing blow to you.", result.Attacker.Name);
             }
+
+            return sb.ToString();
+        }
+
+        private static string DescribePlayerAttack(AttackResult result)
+        {
+            var sb = new StringBuilder(40);
+
+            foreach (var blow in result.Blows)
+            {
+                if (blow.IsMiss)
+                {
+                    sb.AppendFormat("You have missed the {0} . ", result.Target.Name);
+                }
+                else
+                {
+                    sb.AppendFormat("You have dealt {0} damage to {1}. ", blow.Damage, result.Target.Name);
+                }
+            }
+
+            if (result.Target.IsDead)
+            {
+                sb.AppendFormat("{0} dies. ", result.Target.Name);
+            }
+
+            return sb.ToString();
         }
     }
 }

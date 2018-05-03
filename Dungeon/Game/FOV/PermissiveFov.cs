@@ -79,18 +79,21 @@ namespace Dungeon.Game.FOV
             }
         }
 
-        void VisitPoint(FovData data, int x, int y, int deltaX, int deltaY, int viewIndex, List<View> activeViews)
+        private void VisitPoint(FovData data, int x, int y, int deltaX, int deltaY, int viewIndex, List<View> activeViews)
         {
-            var topLeft = new List<int> { x, y + 1 };
-            var bottomRight = new List<int> { x + 1, y }; // The top left and bottom right corners of the current coordinate.
+            var topLeft = new Point(x, y + 1);
+            var bottomRight = new Point(x + 1, y); // The top left and bottom right corners of the current coordinate.
 
-            for (; viewIndex < activeViews.Count &&
-                   activeViews[viewIndex].SteepLine.IsBelowOrCollinear(bottomRight[0], bottomRight[1]); ++viewIndex)
+            for (;
+                viewIndex < activeViews.Count &&
+                activeViews[viewIndex].SteepLine.IsBelowOrCollinear(bottomRight.X, bottomRight.Y);
+                ++viewIndex)
             {
                 // The current coordinate is above the current view and is ignored. The steeper fields may need it though.
             }
 
-            if (viewIndex == activeViews.Count || activeViews[viewIndex].ShallowLine.IsAboveOrCollinear(topLeft[0], topLeft[1])
+            if (viewIndex == activeViews.Count ||
+                activeViews[viewIndex].ShallowLine.IsAboveOrCollinear(topLeft.X, topLeft.Y)
             )
             {
                 // Either the current coordinate is above all of the fields or it is below all of the fields.
@@ -106,10 +109,8 @@ namespace Dungeon.Game.FOV
 
 
             var pt = new Point(data.StartX + realX, data.StartY + realY);
-            //if (!data.visited[pt.X] || !data.visited[pt.X][pt.Y])
-            {
-                data.Visited.Add(new Point(pt.X, pt.Y));
-            }
+
+            data.Visited.Add(new Point(pt.X, pt.Y));
 
             if (data.IsTransparent(pt.X, pt.Y))
             {
@@ -118,8 +119,9 @@ namespace Dungeon.Game.FOV
             }
 
             // The current coordinate is an obstacle.
-            bool shallowLineIsAboveBottomRight = activeViews[viewIndex].ShallowLine.IsAbove(bottomRight[0], bottomRight[1]);
-            bool steepLineIsBelowTopLeft = activeViews[viewIndex].SteepLine.IsBelow(topLeft[0], topLeft[1]);
+            bool shallowLineIsAboveBottomRight =
+                activeViews[viewIndex].ShallowLine.IsAbove(bottomRight.X, bottomRight.Y);
+            bool steepLineIsBelowTopLeft = activeViews[viewIndex].SteepLine.IsBelow(topLeft.X, topLeft.Y);
 
             if (shallowLineIsAboveBottomRight && steepLineIsBelowTopLeft)
             {
@@ -129,13 +131,13 @@ namespace Dungeon.Game.FOV
             else if (shallowLineIsAboveBottomRight)
             {
                 // The obstacle is intersected by the shallow line of the current view. The shallow line needs to be raised.
-                AddShallowBump(topLeft[0], topLeft[1], activeViews, viewIndex);
+                AddShallowBump(topLeft.X, topLeft.Y, activeViews, viewIndex);
                 CheckView(activeViews, viewIndex);
             }
             else if (steepLineIsBelowTopLeft)
             {
                 // The obstacle is intersected by the steep line of the current view. The steep line needs to be lowered.
-                _addSteepBump(bottomRight[0], bottomRight[1], activeViews, viewIndex);
+                AddSteepBump(bottomRight.X, bottomRight.Y, activeViews, viewIndex);
                 CheckView(activeViews, viewIndex);
             }
             else
@@ -146,19 +148,19 @@ namespace Dungeon.Game.FOV
                 int steepViewIndex = ++viewIndex;
 
                 activeViews.Insert(shallowViewIndex, activeViews[shallowViewIndex].Clone());
-                _addSteepBump(bottomRight[0], bottomRight[1], activeViews, shallowViewIndex);
+                AddSteepBump(bottomRight.X, bottomRight.Y, activeViews, shallowViewIndex);
 
                 if (!CheckView(activeViews, shallowViewIndex))
                 {
                     --steepViewIndex;
                 }
 
-                AddShallowBump(topLeft[0], topLeft[1], activeViews, steepViewIndex);
+                AddShallowBump(topLeft.X, topLeft.Y, activeViews, steepViewIndex);
                 CheckView(activeViews, steepViewIndex);
             }
         }
 
-        void AddShallowBump(int x, int y, List<View> activeViews, int viewIndex)
+        private static void AddShallowBump(int x, int y, IReadOnlyList<View> activeViews, int viewIndex)
         {
             activeViews[viewIndex].ShallowLine.SetFarPoint(x, y);
             activeViews[viewIndex].ShallowBump = new ViewBump(x, y, activeViews[viewIndex].ShallowBump);
@@ -171,8 +173,8 @@ namespace Dungeon.Game.FOV
                 }
             }
         }
-    
-        void _addSteepBump(int x, int y, List<View> activeViews, int viewIndex)
+
+        private static void AddSteepBump(int x, int y, IReadOnlyList<View> activeViews, int viewIndex)
         {
             activeViews[viewIndex].SteepLine.SetFarPoint(x, y);
             activeViews[viewIndex].SteepBump = new ViewBump(x, y, activeViews[viewIndex].SteepBump);
@@ -186,21 +188,22 @@ namespace Dungeon.Game.FOV
             }
         }
 
-        private bool CheckView(List<View> activeViews, int viewIndex)
+        private static bool CheckView(IList<View> activeViews, int viewIndex)
         {
             /* Remove the view in activeViews at index viewIndex if either:
              * - the two lines are collinear
              * - the lines pass through either extremity
              */
-            if (activeViews[viewIndex].ShallowLine.IsLineCollinear(activeViews[viewIndex].SteepLine) &&
-                (activeViews[viewIndex].ShallowLine.IsCollinear(0, 1) || activeViews[viewIndex].ShallowLine.IsCollinear(1, 0))
-            )
+            if (!activeViews[viewIndex].ShallowLine.IsLineCollinear(activeViews[viewIndex].SteepLine) ||
+                (!activeViews[viewIndex].ShallowLine.IsCollinear(0, 1) &&
+                 !activeViews[viewIndex].ShallowLine.IsCollinear(1, 0)))
             {
-                activeViews.RemoveAt(viewIndex);
-                return false;
+                return true;
             }
 
-            return true;
+            activeViews.RemoveAt(viewIndex);
+            return false;
+
         }
 
 

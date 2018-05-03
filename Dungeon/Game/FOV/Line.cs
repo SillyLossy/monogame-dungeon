@@ -24,11 +24,6 @@
             deltaY = this.farY - this.nearY;
         }
 
-        public Line Clone()
-        {
-            return new Line(nearX, nearY, farX, farY);
-        }
-    
         public void SetNearPoint(int newNearX, int newNearY)
         {
             nearX = newNearX;
@@ -37,7 +32,7 @@
             deltaX = farX - nearX;
             deltaY = farY - nearY;
         }
-    
+
         public void SetFarPoint(int newFarX, int newFarY)
         {
             farX = newFarX;
@@ -46,41 +41,21 @@
             deltaX = farX - nearX;
             deltaY = farY - nearY;
         }
-    
-        public bool IsBelow(int x, int y)
-        {
-            return RelativeSlope(x, y) > 0;
-        }
 
+        public Line Clone() => new Line(nearX, nearY, farX, farY);
 
-        public bool IsBelowOrCollinear(int x, int y)
-        {
-            return RelativeSlope(x, y) >= 0;
-        }
+        public bool IsBelow(int x, int y) => RelativeSlope(x, y) > 0;
 
-        public bool IsAbove(int x, int y)
-        {
-            return RelativeSlope(x, y) < 0;
-        }
-    
-        public bool IsAboveOrCollinear(int x, int y)
-        {
-            return RelativeSlope(x, y) <= 0;
-        }
-    
-        public bool IsCollinear(int x, int y)
-        {
-            return RelativeSlope(x, y) == 0;
-        }
-    
-        public bool IsLineCollinear(Line line)
-        {
-            return IsCollinear(line.nearX, line.nearY) && IsCollinear(line.farX, line.farY);
-        }
-    
-        int RelativeSlope(int x, int y)
-        {
-            return deltaY * (farX - x) - deltaX * (farY - y);
-        }
+        public bool IsBelowOrCollinear(int x, int y) => RelativeSlope(x, y) >= 0;
+
+        public bool IsAbove(int x, int y) => RelativeSlope(x, y) < 0;
+
+        public bool IsAboveOrCollinear(int x, int y) => RelativeSlope(x, y) <= 0;
+
+        public bool IsCollinear(int x, int y) => RelativeSlope(x, y) == 0;
+
+        public bool IsLineCollinear(Line line) => IsCollinear(line.nearX, line.nearY) && IsCollinear(line.farX, line.farY);
+
+        private int RelativeSlope(int x, int y) => deltaY * (farX - x) - deltaX * (farY - y);
     }
 }

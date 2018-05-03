@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Dungeon.Game.Common;
 using Microsoft.Xna.Framework;
 
 namespace Dungeon.Game.Levels
@@ -40,6 +41,8 @@ namespace Dungeon.Game.Levels
                 result.AddFirst(currentNode.Value);
                 currentNode = cameFrom[currentNode.Value];
             }
+
+            result.RemoveFirst();
             
             return result;
         }

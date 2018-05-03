@@ -1,6 +1,6 @@
 ﻿using Dungeon.Game.Levels;
 
-namespace Dungeon
+namespace Dungeon.Game
 {
     public static class TextureKey
     {
@@ -8,12 +8,13 @@ namespace Dungeon
         public const string Player = TexturesPath + "/" + nameof(Player);
         public const string Target = TexturesPath + "/" + nameof(Target);
         public const string Path = TexturesPath + "/" + nameof(Path);
-        public const string OpenDoor = TexturesPath + "/" + nameof(OpenDoor);
-        public const string ClosedDoor = TexturesPath + "/" + nameof(ClosedDoor);
+        public const string DoorOpen = TexturesPath + "/" + nameof(DoorOpen);
+        public const string DoorClosed = TexturesPath + "/" + nameof(DoorClosed);
+        public const string Empty = "Empty";
 
         public static string FromTile(DungeonTile tile)
         {
-            return $"Textures/{tile}";
+            return $"{TexturesPath}/{tile}";
         }
     }
 }

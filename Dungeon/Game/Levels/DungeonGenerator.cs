@@ -271,6 +271,8 @@ namespace Dungeon.Game.Levels
             floor.Tiles[exit.Value.X, exit.Value.Y] = DungeonTile.LadderDown;
             floor.Tiles[entrance.Value.X, entrance.Value.Y] = DungeonTile.LadderUp;
 
+            floor.GenerateMonsters(isFirstEnter: true);
+
             return floor;
         }
 
