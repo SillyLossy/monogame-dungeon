@@ -170,3 +170,10 @@
 #begin PTM75F.ttf
 /copy:PTM75F.ttf
 
+#begin SmallFont.spritefont
+/importer:FontDescriptionImporter
+/processor:FontDescriptionProcessor
+/processorParam:PremultiplyAlpha=True
+/processorParam:TextureFormat=Compressed
+/build:SmallFont.spritefont
+

@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Dungeon.Game.Common;
 using Dungeon.Game.FOV;
 using Dungeon.Game.Levels;
-using Microsoft.Xna.Framework;
 using Newtonsoft.Json;
 
 namespace Dungeon.Game.Entities
@@ -50,7 +50,7 @@ namespace Dungeon.Game.Entities
             }
         }
 
-        public static int GetExpCap(int level)
+        public static int GetExperienceCap(int level)
         {
             if (level - 1 < LevelLookup.Count)
             {

@@ -7,25 +7,26 @@ using Microsoft.Xna.Framework;
 
 namespace Dungeon.Game
 {
+    public class LogLine
+    {
+        public string Line { get; private set; }
+        public Color Color { get; private set; }
+
+        public LogLine(string line, Color color)
+        {
+            Line = line;
+            Color = color;
+        }
+
+        public LogLine(string line)
+        {
+            Line = line;
+            Color = Color.White;
+        }
+    }
+
     public class TextGameLog
     {
-        public class LogLine
-        {
-            public string Line { get; private set; }
-            public Color Color { get; private set; }
-
-            public LogLine(string line, Color color)
-            {
-                Line = line;
-                Color = color;
-            }
-
-            public LogLine(string line)
-            {
-                Line = line;
-                Color = Color.White;
-            }
-        }
 
         private readonly LinkedList<LogLine> lines = new LinkedList<LogLine>();
 
@@ -67,7 +68,7 @@ namespace Dungeon.Game
 
             if (result.Target.IsDead)
             {
-                lines.AddLast(new LogLine(string.Format("{0} kills you!", result.Attacker.Name), Color.DarkRed));
+                lines.AddLast(new LogLine(string.Format("{0} kills you!", result.Attacker.Name), Color.Red));
             }
         }
 
@@ -87,7 +88,7 @@ namespace Dungeon.Game
 
             if (result.Target.IsDead)
             {
-                lines.AddLast(new LogLine(string.Format("You kill the {0}!", result.Target.Name), Color.DarkRed));
+                lines.AddLast(new LogLine(string.Format("You kill the {0}!", result.Target.Name), Color.Red));
             }
             
         }

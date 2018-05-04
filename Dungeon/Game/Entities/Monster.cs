@@ -2,7 +2,6 @@
 using System.Linq;
 using Dungeon.Game.Common;
 using Dungeon.Game.Levels;
-using Microsoft.Xna.Framework;
 
 namespace Dungeon.Game.Entities
 {

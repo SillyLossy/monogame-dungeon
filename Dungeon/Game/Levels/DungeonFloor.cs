@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Dungeon.Game.Entities;
-using Microsoft.Xna.Framework;
+using Dungeon.Game.Common;
 using Newtonsoft.Json;
 
 namespace Dungeon.Game.Levels
@@ -16,7 +16,7 @@ namespace Dungeon.Game.Levels
         {
             get
             {
-                Point point = Point.Zero;
+                Point point = null;
                 for (int i = 0; i < Settings.Width * Settings.Height; i++)
                 {
                     int x = DungeonGame.Random.Next(Settings.Width);
@@ -31,6 +31,12 @@ namespace Dungeon.Game.Levels
                     point = randomPoint;
                     break;
                 }
+
+                if (point == null)
+                {
+                    throw new ArgumentException("No free points left");
+                }
+
                 return point;
             }
         }
@@ -45,7 +51,7 @@ namespace Dungeon.Game.Levels
         private Point RandomNeighborOfTile(DungeonTile tile)
         {
 
-            Point? entrancePoint = null;
+            Point entrancePoint = null;
             for (int x = 0; x < Settings.Width; x++)
             {
                 for (int y = 0; y < Settings.Height; y++)
@@ -62,7 +68,7 @@ namespace Dungeon.Game.Levels
                 throw new Exception("No entrances on level!");
             }
 
-            var entranceNeighbors = GetNeighbors(entrancePoint.Value).ToArray();
+            var entranceNeighbors = GetNeighbors(entrancePoint).ToArray();
             return entranceNeighbors[DungeonGame.Random.Next(entranceNeighbors.Length)];
         }
         

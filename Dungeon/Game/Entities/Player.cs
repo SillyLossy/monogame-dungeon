@@ -1,5 +1,4 @@
-﻿using Dungeon.Game.Levels;
-using Microsoft.Xna.Framework;
+﻿using Dungeon.Game.Common;
 
 namespace Dungeon.Game.Entities
 {

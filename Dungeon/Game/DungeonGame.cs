@@ -6,7 +6,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Dungeon.Game.Entities;
 using Newtonsoft.Json;
+using Point = Dungeon.Game.Common.Point;
 
 namespace Dungeon.Game
 {
@@ -30,9 +32,34 @@ namespace Dungeon.Game
         private readonly DungeonGameState gameState;
         private readonly Viewport2D viewport;
         private static readonly Color SeenTileColor = new Color(100, 100, 100, 100);
-        private static SpriteFont font;
+        private SpriteFont defaultFont;
+        private SpriteFont smallFont;
         public static TextGameLog Log { get; } = new TextGameLog();
         public static Random Random { get; } = new Random();
+
+        private static DungeonGameState LoadGame()
+        {
+            try
+            {
+                return JsonConvert.DeserializeObject<DungeonGameState>(File.ReadAllText(SaveFilePath));
+            }
+            catch (Exception)
+            {
+                return new DungeonGameState().NewGame();
+            }
+        }
+
+        private static void SaveGame(DungeonGameState state)
+        {
+            try
+            {
+                File.WriteAllText(SaveFilePath, JsonConvert.SerializeObject(state));
+            }
+            catch (Exception)
+            {
+                // panic!
+            }
+        }
 
         private static readonly JsonSerializerSettings SerializerSettings = new JsonSerializerSettings
         {
@@ -41,16 +68,7 @@ namespace Dungeon.Game
 
         public DungeonGame()
         {
-            try
-            {
-                gameState = File.Exists(SaveFilePath)
-                    ? JsonConvert.DeserializeObject<DungeonGameState>(File.ReadAllText(SaveFilePath), SerializerSettings)
-                    : new DungeonGameState().NewGame();
-            }
-            catch (Exception)
-            {
-                gameState = new DungeonGameState().NewGame();
-            }
+            gameState = LoadGame();
 
             graphics = new GraphicsDeviceManager(this)
             {
@@ -58,33 +76,9 @@ namespace Dungeon.Game
                 PreferredBackBufferHeight = 200
             };
             Content.RootDirectory = "Content";
-            viewport = new Viewport2D
-            {
-                Width = (int)(graphics.PreferredBackBufferWidth * 0.8),
-                Height = (int)(graphics.PreferredBackBufferHeight * 0.8)
-            };
-            CenterViewport(gameState.Player.Position);
-        }
-
-        private void CenterViewport(Point? point = null)
-        {
-            //var size = viewport.ToTileSize(graphics.PreferredBackBufferWidth, graphics.PreferredBackBufferHeight);
-            //int left;
-            //int top;
-            //if (point == null)
-            //{
-            //    // center on middle of floor
-            //    left = (size.Item1 / 2) - (gameState.CurrentFloor.Settings.Width / 2);
-            //    top = (size.Item2 / 2) - (gameState.CurrentFloor.Settings.Height / 2);
-            //}
-            //else
-            //{
-            //    // center given point
-            //    left = (-2 * point.Value.X + size.Item1) / 2;
-            //    top = (-2 * point.Value.Y + size.Item2) / 2;
-            //}
-            //viewport.Left = left;
-            //viewport.Top = top;
+            viewport = new Viewport2D();
+            SizeChanged(Window, EventArgs.Empty);
+            viewport.Center(gameState.Player.Position);
         }
 
         /// <summary>
@@ -106,8 +100,8 @@ namespace Dungeon.Game
             var window = (GameWindow) sender;
             graphics.PreferredBackBufferHeight = window.ClientBounds.Height;
             graphics.PreferredBackBufferWidth = window.ClientBounds.Width;
-            viewport.Width = (int) (graphics.PreferredBackBufferWidth * 0.8);
-            viewport.Height = (int) (graphics.PreferredBackBufferHeight * 0.8);
+            viewport.Width = (int) (graphics.PreferredBackBufferWidth * 0.7);
+            viewport.Height = (int) (graphics.PreferredBackBufferHeight * 0.7);
         }
 
         /// <summary>
@@ -118,7 +112,8 @@ namespace Dungeon.Game
         {
             // Create a new SpriteBatch, which can be used to draw textures.
             spriteBatch = new SpriteBatch(GraphicsDevice);
-            font = Content.Load<SpriteFont>("DefaultFont");
+            defaultFont = Content.Load<SpriteFont>("DefaultFont");
+            smallFont = Content.Load<SpriteFont>("SmallFont");
 
             Textures = new Dictionary<object, Texture2D>
             {
@@ -151,7 +146,7 @@ namespace Dungeon.Game
         /// </summary>
         protected override void UnloadContent()
         {
-            File.WriteAllText(SaveFilePath, JsonConvert.SerializeObject(gameState, SerializerSettings));
+            SaveGame(gameState);
             foreach (var pair in Textures)
             {
                 pair.Value.Dispose();
@@ -194,12 +189,12 @@ namespace Dungeon.Game
                 if (prevState.ScrollWheelValue < mouseState.ScrollWheelValue)
                 {
                     viewport.UpScale();
-                    CenterViewport(gameState.Player.Position);
+                    viewport.Center(gameState.Player.Position);
                 }
                 else if (prevState.ScrollWheelValue > mouseState.ScrollWheelValue)
                 {
                     viewport.DownScale();
-                    CenterViewport(gameState.Player.Position);
+                    viewport.Center(gameState.Player.Position);
                 }
 
                 if (prevState.LeftButton == ButtonState.Pressed &&
@@ -280,13 +275,13 @@ namespace Dungeon.Game
             if (keyboardState.IsKeyDown(Keys.PageDown))
             {
                 inputAction = (() => gameState.Descend());
-                CenterViewport(gameState.Player.Position);
+                viewport.Center(gameState.Player.Position);
             }
 
             if (keyboardState.IsKeyDown(Keys.PageUp))
             {
                 inputAction = (() => gameState.Ascend());
-                CenterViewport(gameState.Player.Position);
+                viewport.Center(gameState.Player.Position);
             }
 
             prevKeyboardState = keyboardState;
@@ -332,7 +327,9 @@ namespace Dungeon.Game
             DrawCharacters(visible);
 
             DrawLog();
-            
+
+            DrawStatus();
+
             spriteBatch.End();
 
             base.Draw(gameTime);
@@ -390,13 +387,45 @@ namespace Dungeon.Game
                 }
             }
         }
-
+        
         private void DrawLog()
         {
+            const int xMargin = 3, yMargin = 2;
+
+            var logRect = new Rectangle(0, viewport.Height, viewport.Width, Window.ClientBounds.Height - viewport.Height);
+            spriteBatch.Draw(Textures[TextureKey.Target], logRect, Color.Black);
+
+            int lineCount = (int) Math.Floor((logRect.Height - yMargin * 2) / (double)(smallFont.LineSpacing));
+            
             int topOffsetIndex = 0;
-            foreach (var line in Log.GetLastLines(5))
+            foreach (var line in Log.GetLastLines(lineCount))
             {
-                spriteBatch.DrawString(font, line.Line, new Vector2(3, 15 * topOffsetIndex++ + 3), line.Color);
+                spriteBatch.DrawString(smallFont, line.Line, new Vector2(logRect.X + xMargin, (logRect.Y + yMargin) + smallFont.LineSpacing * topOffsetIndex++), line.Color);
+            }
+        }
+
+        private void DrawStatus()
+        {
+            const int xMargin = 3, yMargin = 2;
+
+            var statusRect = new Rectangle(viewport.Width, 0, Window.ClientBounds.Width - viewport.Width, Window.ClientBounds.Height);
+            spriteBatch.Draw(Textures[TextureKey.Target], statusRect, Color.Black);
+
+            var player = gameState.Player;
+            
+            int expTillNext = Character.GetExperienceCap(player.Level + 1) - player.Experience;
+            var lines = new List<LogLine>
+            {
+                new LogLine(player.Name, Color.Yellow),
+                new LogLine(string.Format("Level {0} ({1} exp. till next)", player.Level, expTillNext)),
+                new LogLine(string.Format("Health: {0}/{1}", player.HitPoints, player.MaxHitPoints))
+            };
+
+
+            int topOffsetIndex = 0;
+            foreach (var line in lines)
+            {
+                spriteBatch.DrawString(smallFont, line.Line, new Vector2(statusRect.X + xMargin, (statusRect.Y + yMargin) + smallFont.LineSpacing * topOffsetIndex++), line.Color);
             }
         }
 

@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Dungeon.Game.Common;
 using Dungeon.Game.Entities;
 using Dungeon.Game.Levels;
-using Microsoft.Xna.Framework;
 using Newtonsoft.Json;
 
 namespace Dungeon.Game

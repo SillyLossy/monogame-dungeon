@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using Microsoft.Xna.Framework;
+using Dungeon.Game.Common;
 using Priority_Queue;
 
 namespace Dungeon.Game.Levels
@@ -18,12 +18,12 @@ namespace Dungeon.Game.Levels
             Point start)
         {
             var result = new LinkedList<Point>();
-            Point? currentNode = current;
+            Point currentNode = current;
             while (true)
             {
-                result.AddFirst(currentNode.Value);
-                currentNode = cameFrom[currentNode.Value];
-                if (currentNode.Value == start)
+                result.AddFirst(currentNode);
+                currentNode = cameFrom[currentNode];
+                if (currentNode == start)
                 {
                     break;
                 } 

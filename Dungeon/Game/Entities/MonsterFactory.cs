@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using Microsoft.Xna.Framework;
+using Dungeon.Game.Common;
 
 namespace Dungeon.Game.Entities
 {
@@ -86,7 +86,7 @@ namespace Dungeon.Game.Entities
                 },
                 position)
             {
-                Experience = Character.GetExpCap(Level.Value) + 1,
+                Experience = Character.GetExperienceCap(Level.Value) + 1,
                 ExperienceReward = ExperienceReward.Value
             };
         }

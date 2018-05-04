@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Dungeon.Game.Common;
 using Dungeon.Game.Entities;
-using Microsoft.Xna.Framework;
 
 namespace Dungeon.Game.Levels
 {
@@ -31,7 +31,7 @@ namespace Dungeon.Game.Levels
             }
 
             var roomList = new List<Room>();
-            var corridorList = new List<List<Tuple<int, int>>>();
+            var corridorList = new List<List<Point>>();
 
             int maxIters = settings.MaxRooms * 5;
             for (int i = 0; i < maxIters; i++)
@@ -95,10 +95,10 @@ namespace Dungeon.Game.Levels
             // paint corridors
             foreach (var corridor in corridorList)
             {
-                int x1 = corridor[0].Item1;
-                int y1 = corridor[0].Item2;
-                int x2 = corridor[1].Item1;
-                int y2 = corridor[1].Item2;
+                int x1 = corridor[0].X;
+                int y1 = corridor[0].Y;
+                int x2 = corridor[1].X;
+                int y2 = corridor[1].Y;
                 for (int w = 0; w < (Math.Abs(x1 - x2) + 1); w++)
                 {
                     for (int h = 0; h < (Math.Abs(y1 - y2) + 1); h++)
@@ -109,8 +109,8 @@ namespace Dungeon.Game.Levels
 
                 if (corridor.Count == 3)
                 {
-                    int x3 = corridor[2].Item1;
-                    int y3 = corridor[2].Item2;
+                    int x3 = corridor[2].X;
+                    int y3 = corridor[2].Y;
                     for (int w = 0; w < (Math.Abs(x2 - x3) + 1); w++)
                     {
                         for (int h = 0; h < (Math.Abs(y2 - y3) + 1); h++)
@@ -242,8 +242,8 @@ namespace Dungeon.Game.Levels
 
             floor.Doors = doors.Values.ToList();
 
-            Point? exit = null;
-            Point? entrance = null;
+            Point exit = null;
+            Point entrance = null;
             do
             {
                 try
@@ -268,8 +268,8 @@ namespace Dungeon.Game.Levels
                 }
             } while (exit == null || entrance == null);
 
-            floor.Tiles[exit.Value.X, exit.Value.Y] = DungeonTile.LadderDown;
-            floor.Tiles[entrance.Value.X, entrance.Value.Y] = DungeonTile.LadderUp;
+            floor.Tiles[exit.X, exit.Y] = DungeonTile.LadderDown;
+            floor.Tiles[entrance.X, entrance.Y] = DungeonTile.LadderUp;
 
             floor.GenerateMonsters(isFirstEnter: true);
 
@@ -313,11 +313,11 @@ namespace Dungeon.Game.Levels
             return false;
         }
 
-        private static List<Tuple<int, int>> CorridorBetweenPoints(Random random, FloorSettings settings, int x1, int y1, int x2, int y2, Join joinType = Join.Either)
+        private static List<Point> CorridorBetweenPoints(Random random, FloorSettings settings, int x1, int y1, int x2, int y2, Join joinType = Join.Either)
         {
             if (x1 == x2 && y1 == y2 || x1 == x2 || y1 == y2)
             {
-                return new List<Tuple<int, int>> { new Tuple<int, int>(x1, y1), new Tuple<int, int>(x2, y2) };
+                return new List<Point> { new Point(x1, y1), new Point(x2, y2) };
             }
 
             // 2 Corridors
@@ -343,25 +343,25 @@ namespace Dungeon.Game.Levels
 
             if (join == Join.Top)
             {
-                return new List<Tuple<int, int>>
+                return new List<Point>
                 {
-                    new Tuple<int, int>(x1, y1),
-                    new Tuple<int, int>(x1, y2),
-                    new Tuple<int, int>(x2, y2)
+                    new Point(x1, y1),
+                    new Point(x1, y2),
+                    new Point(x2, y2)
                 };
             }
             else
             {
-                return new List<Tuple<int, int>>
+                return new List<Point>
                 {
-                    new Tuple<int, int>(x1, y1),
-                    new Tuple<int, int>(x2, y1),
-                    new Tuple<int, int>(x2, y2)
+                    new Point(x1, y1),
+                    new Point(x2, y1),
+                    new Point(x2, y2)
                 };
             }
         }
 
-        private static void JoinRooms(Random random, FloorSettings settings, List<List<Tuple<int,int>>> corridorList, Room room1, Room room2, Join joinType = Join.Either)
+        private static void JoinRooms(Random random, FloorSettings settings, List<List<Point>> corridorList, Room room1, Room room2, Join joinType = Join.Either)
         {
             // sort by the value of x
             var sortedRooms = new List<Room> { room1, room2 };

@@ -1,4 +1,4 @@
-﻿using Microsoft.Xna.Framework;
+﻿using Dungeon.Game.Common;
 
 namespace Dungeon.Game.Entities
 {
