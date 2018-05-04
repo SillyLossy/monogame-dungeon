@@ -31,28 +31,28 @@ namespace Dungeon.Game.Entities
 
         }
 
-        public override void Step(DungeonFloor parent)
+        public override void Update(DungeonGameState state)
         {
-            CheckForNearbyRivals(parent);
+            CheckForNearbyRivals(state);
             switch (CurrentState)
             {
                 case State.Waiting:
-                    Wait(parent);
+                    Wait(state.CurrentFloor);
                     break;
                 case State.Enraged:
-                    TryAttack(parent);
+                    TryAttack(state);
                     break;
                 case State.Roaming:
-                    Roam(parent);
+                    Roam(state.CurrentFloor);
                     break;
             }
         }
 
-        private void CheckForNearbyRivals(DungeonFloor parent)
+        private void CheckForNearbyRivals(DungeonGameState state)
         {
             const int cooldown = 20;
-            var visible = GetVisiblePoints(parent);
-            foreach (var character in parent.Characters)
+            var visible = GetVisiblePoints(state.CurrentFloor);
+            foreach (var character in state.CurrentFloor.Characters)
             {
                 // TODO: Make monsters attack not only players
                 if (character is Player && visible.Contains(character.Position))
@@ -69,7 +69,7 @@ namespace Dungeon.Game.Entities
         {
             if (HasNextStep)
             {
-                base.Step(parent);
+                Step(parent);
             }
             else
             {
@@ -77,15 +77,15 @@ namespace Dungeon.Game.Entities
             }
         }
 
-        private void TryAttack(DungeonFloor parent)
+        private void TryAttack(DungeonGameState state)
         {
             if (RivalCharacter == null || Cooldown <= 0)
             {
-                SetPeacefulState(parent);
+                SetPeacefulState(state.CurrentFloor);
                 return;
             }
 
-            if (parent.GetNeighbors(Position, true).ToList().Contains(RivalCharacter.Position))
+            if (state.CurrentFloor.GetNeighbors(Position, true).ToList().Contains(RivalCharacter.Position))
             {
                 var result = Attack(RivalCharacter);
                 if (result.Target is Player)
@@ -95,7 +95,7 @@ namespace Dungeon.Game.Entities
             }
             else
             {
-                var path = FindPathToEntity(parent, RivalCharacter.Position);
+                var path = FindPathToEntity(state.CurrentFloor, RivalCharacter.Position);
                 if (path == null)
                 {
                     Cooldown--;
@@ -103,7 +103,7 @@ namespace Dungeon.Game.Entities
                 else
                 {
                     Path = path;
-                    base.Step(parent);
+                    Step(state.CurrentFloor);
                 }
             }
         }
@@ -119,7 +119,7 @@ namespace Dungeon.Game.Entities
 
         private void SetPeacefulState(DungeonFloor parent)
         {
-            var newState = Choise(State.Roaming, State.Waiting);
+            State newState = Choise(State.Roaming, State.Waiting);
             if (newState == State.Waiting)
             {
                 SetWaitState();

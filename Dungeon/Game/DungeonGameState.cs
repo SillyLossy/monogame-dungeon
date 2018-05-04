@@ -76,11 +76,19 @@ namespace Dungeon.Game
         }
 
         // Advances the game state forward in time
-        public void Step()
+        public void Update(Action inputAction)
         {
-            foreach (var entity in CurrentFloor.Characters.OrderByDescending(c => c.Sequence))
+            // Only do update if we have a pending action or the player is already moving.
+            if (inputAction == null && !Player.HasNextStep)
             {
-                entity.Step(CurrentFloor);
+                return;
+            }
+
+            inputAction?.Invoke();
+
+            foreach (var character in CurrentFloor.Characters.OrderByDescending(c => c.Sequence))
+            {
+                character.Update(this);
             }
         }
 

@@ -1,30 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using Dungeon.Game.Common;
 using Microsoft.Xna.Framework;
+using Priority_Queue;
 
 namespace Dungeon.Game.Levels
 {
     public static class PathFinder
     {
-        private class DefaultableDictionary<TKey, TValue> : Dictionary<TKey, TValue>
-        {
-            private readonly TValue _default;
-
-            public DefaultableDictionary(TValue defaultValue)
-            {
-                _default = defaultValue;
-            }
-
-            public new TValue this[TKey key]
-            {
-                get => TryGetValue(key, out var t) ? t : _default;
-                set => base[key] = value;
-            }
-        }
-
-
         private static double HeuristicCostEstimate(Point start, Point goal)
         {
             double num1 = start.X - goal.X;
@@ -32,73 +14,53 @@ namespace Dungeon.Game.Levels
             return Math.Sqrt(num1 * num1 + num2 * num2);
         }
 
-        private static LinkedList<Point> ReconstructPath(DefaultableDictionary<Point, Point?> cameFrom, Point current)
+        private static LinkedList<Point> ReconstructPath(IDictionary<Point, Point> cameFrom, Point current,
+            Point start)
         {
             var result = new LinkedList<Point>();
             Point? currentNode = current;
-            while (currentNode != null)
+            while (true)
             {
                 result.AddFirst(currentNode.Value);
                 currentNode = cameFrom[currentNode.Value];
+                if (currentNode.Value == start)
+                {
+                    break;
+                } 
             }
-
-            result.RemoveFirst();
             
             return result;
         }
 
         public static LinkedList<Point> AStar(DungeonFloor floor, Point start, Point goal, bool ignoreEntities = false)
         {
-            // The set of nodes already evaluated
-            var closedSet = new HashSet<Point>();
+            var frontier = new SimplePriorityQueue<Point, double>();
+            var cameFrom = new Dictionary<Point, Point>();
+            var costSoFar = new Dictionary<Point, double>();
 
-            // The set of currently discovered nodes that are not evaluated yet.
-            // Initially, only the start node is known.
-            var openSet = new HashSet<Point> { start };
+            frontier.Enqueue(start, 0);
+            cameFrom[start] = start;
+            costSoFar[start] = 0;
 
-            // For each node, which node it can most efficiently be reached from.
-            // If a node can be reached from many nodes, cameFrom will eventually contain the
-            // most efficient previous step
-            var cameFrom = new DefaultableDictionary<Point, Point?>(null);
-
-            // For each node, the cost of getting from the start node to that node.
-            // The cost of going from start to start is zero.
-            var gScore = new DefaultableDictionary<Point, double>(double.PositiveInfinity) { { start, 0 } };
-
-            // For each node, the total cost of getting from the start node to the goal
-            // by passing by that node. That value is partly known, partly heuristic.
-            // For the first node, that value is completely heuristic.
-            var fScore = new DefaultableDictionary<Point, double>(double.PositiveInfinity) { { start, HeuristicCostEstimate(start, goal) } };
-            
-            while (openSet.Count != 0)
+            while (frontier.Count != 0)
             {
-                var current = fScore.KeyWithMinValueFromKeySet(openSet, double.PositiveInfinity);
+                Point current = frontier.Dequeue();
 
                 if (current == goal)
                 {
-                    return ReconstructPath(cameFrom, current);
+                    return ReconstructPath(cameFrom, current, start);
                 }
-
-                openSet.Remove(current);
-                closedSet.Add(current);
-                foreach (var neighbor in floor.GetNeighbors(current, ignoreEntities).Where(neighbor => !closedSet.Contains(neighbor)))
+                ;
+                foreach (var next in floor.GetNeighbors(current, ignoreEntities))
                 {
-                    if (!openSet.Contains(neighbor)) // Discover a new node
+                    double newCost = costSoFar[current] + HeuristicCostEstimate(current, next);
+                    if (!costSoFar.ContainsKey(next) || newCost < costSoFar[next])
                     {
-                        openSet.Add(neighbor);
+                        costSoFar[next] = newCost;
+                        double priority = newCost + HeuristicCostEstimate(next, goal);
+                        frontier.Enqueue(next, priority);
+                        cameFrom[next] = current;
                     }
-
-                    // The distance from start to a neighbor
-                    double tentativeGScore = gScore[current] + HeuristicCostEstimate(start, goal);
-                    if (tentativeGScore >= gScore[neighbor])
-                    {
-                        continue; // This is not a better path.
-                    }
-
-                    // This path is the best until now. Record it!
-                    cameFrom[neighbor] = current;
-                    gScore[neighbor] = tentativeGScore;
-                    fScore[neighbor] = gScore[neighbor] + HeuristicCostEstimate(neighbor, goal);
                 }
             }
 

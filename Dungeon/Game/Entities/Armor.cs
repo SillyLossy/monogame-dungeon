@@ -9,9 +9,9 @@
             DamageResistance = damageResistance;
         }
 
-        public int ArmorClass { get; private set; }
-        public int DamageThreshold { get; private set; }
-        public double DamageResistance { get; private set; }
+        public int ArmorClass { get; set; }
+        public int DamageThreshold { get; set; }
+        public double DamageResistance { get; set; }
 
         public static readonly Armor NoArmor = new Armor("", 0, 0, 0, 0, 0, Game.TextureKey.Empty);
     }

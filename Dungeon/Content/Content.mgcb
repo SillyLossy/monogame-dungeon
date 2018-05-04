@@ -92,9 +92,6 @@
 /processorParam:TextureFormat=Compressed
 /build:DefaultFont.spritefont
 
-#begin Font.ttf
-/copy:Font.ttf
-
 #begin Textures/DoorBroken.png
 /importer:TextureImporter
 /processor:TextureProcessor
@@ -143,18 +140,6 @@
 /processorParam:TextureFormat=Color
 /build:Textures/Goblin.png
 
-#begin Textures/Gremlin.png
-/importer:TextureImporter
-/processor:TextureProcessor
-/processorParam:ColorKeyColor=255,0,255,255
-/processorParam:ColorKeyEnabled=True
-/processorParam:GenerateMipmaps=False
-/processorParam:PremultiplyAlpha=True
-/processorParam:ResizeToPowerOfTwo=False
-/processorParam:MakeSquare=False
-/processorParam:TextureFormat=Color
-/build:Textures/Gremlin.png
-
 #begin Textures/Scorpion.png
 /importer:TextureImporter
 /processor:TextureProcessor
@@ -178,4 +163,10 @@
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
 /build:Textures/Tortoise.png
+
+#begin PTM55F.ttf
+/copy:PTM55F.ttf
+
+#begin PTM75F.ttf
+/copy:PTM75F.ttf
 

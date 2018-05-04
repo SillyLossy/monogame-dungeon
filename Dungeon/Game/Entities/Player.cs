@@ -1,4 +1,5 @@
-﻿using Microsoft.Xna.Framework;
+﻿using Dungeon.Game.Levels;
+using Microsoft.Xna.Framework;
 
 namespace Dungeon.Game.Entities
 {
@@ -6,6 +7,11 @@ namespace Dungeon.Game.Entities
     {
         public Player(string name, string textureKey, PrimaryAttributes primaryAttributes, Point initialPosition) : base(name, textureKey, primaryAttributes, initialPosition)
         {
+        }
+
+        public override void Update(DungeonGameState state)
+        {
+            Step(state.CurrentFloor);
         }
 
         public override AttackResult Attack(Character target)

@@ -223,9 +223,11 @@ namespace Dungeon.Game.Entities
             }
         }
 
-        public virtual void Step(DungeonFloor parent)
+        public abstract void Update(DungeonGameState state);
+
+        public void Step(DungeonFloor parent)
         {
-            if (Path != null && Path.Count > 0)
+            if (HasNextStep)
             {
                 var newPos = Path.First.Value;
                 Path.RemoveFirst();
@@ -330,13 +332,13 @@ namespace Dungeon.Game.Entities
 
         public void RemoveHitPoints(int decrement)
         {
-            HitPoints -= Math.Abs(decrement);
+            HitPoints -= Math.Max(decrement, 0);
         }
 
         public void AddExperience(int increment)
         {
             int prevLevel = Level;
-            Experience += Math.Abs(increment);
+            Experience += Math.Max(increment, 0);
             int newLevel = Level;
             UnallocatedSkillPoints += (newLevel - prevLevel) * SkillRate;
         }

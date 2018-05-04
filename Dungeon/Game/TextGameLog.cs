@@ -3,74 +3,93 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Dungeon.Game.Entities;
+using Microsoft.Xna.Framework;
 
 namespace Dungeon.Game
 {
     public class TextGameLog
     {
-        private readonly LinkedList<string> lines = new LinkedList<string>();
+        public class LogLine
+        {
+            public string Line { get; private set; }
+            public Color Color { get; private set; }
 
-        public void PushLine(string line)
+            public LogLine(string line, Color color)
+            {
+                Line = line;
+                Color = color;
+            }
+
+            public LogLine(string line)
+            {
+                Line = line;
+                Color = Color.White;
+            }
+        }
+
+        private readonly LinkedList<LogLine> lines = new LinkedList<LogLine>();
+
+        public void PushLine(LogLine line)
         {
             lines.AddLast(line);
         }
 
-        public IEnumerable<string> GetLastLines(int count)
+        public IEnumerable<LogLine> GetLastLines(int count)
         {
             return lines.Skip(Math.Max(0, lines.Count - count));
         }
 
         public void LogAttack(AttackResult result)
         {
-            lines.AddLast(result.Attacker is Player ? DescribePlayerAttack(result) : DescribeMonsterAttack(result));
+            if (result.Attacker is Player)
+            {
+                DescribePlayerAttack(result);
+            }
+            else
+            {
+                DescribeMonsterAttack(result);
+            }
         }
 
-        private static string DescribeMonsterAttack(AttackResult result)
+        private void DescribeMonsterAttack(AttackResult result)
         {
-            var sb = new StringBuilder(40);
-
             foreach (var blow in result.Blows)
             {
                 if (blow.IsMiss)
                 {
-                    sb.AppendFormat("{0} misses. ", result.Attacker.Name);
+                    lines.AddLast(new LogLine(string.Format("{0} misses.", result.Attacker.Name), Color.WhiteSmoke));
                 }
                 else
                 {
-                    sb.AppendFormat("{0} have dealt {1} damage to you. ", result.Attacker.Name, blow.Damage);
+                    lines.AddLast(new LogLine(string.Format("The {0} hits you.", result.Attacker.Name)));
                 }
             }
 
             if (result.Target.IsDead)
             {
-                sb.AppendFormat("{0} deals a killing blow to you.", result.Attacker.Name);
+                lines.AddLast(new LogLine(string.Format("{0} kills you!", result.Attacker.Name), Color.DarkRed));
             }
-
-            return sb.ToString();
         }
 
-        private static string DescribePlayerAttack(AttackResult result)
+        private void DescribePlayerAttack(AttackResult result)
         {
-            var sb = new StringBuilder(40);
-
             foreach (var blow in result.Blows)
             {
                 if (blow.IsMiss)
                 {
-                    sb.AppendFormat("You have missed the {0} . ", result.Target.Name);
+                    lines.AddLast(new LogLine(string.Format("You miss the {0}. ", result.Target.Name), Color.WhiteSmoke));
                 }
                 else
                 {
-                    sb.AppendFormat("You have dealt {0} damage to {1}. ", blow.Damage, result.Target.Name);
+                    lines.AddLast(new LogLine(string.Format("You hit the {0}.", result.Target.Name)));
                 }
             }
 
             if (result.Target.IsDead)
             {
-                sb.AppendFormat("{0} dies. ", result.Target.Name);
+                lines.AddLast(new LogLine(string.Format("You kill the {0}!", result.Target.Name), Color.DarkRed));
             }
-
-            return sb.ToString();
+            
         }
     }
 }

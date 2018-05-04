@@ -54,33 +54,37 @@ namespace Dungeon.Game
 
             graphics = new GraphicsDeviceManager(this)
             {
-                PreferredBackBufferWidth = (int)(GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Width * 0.9),
-                PreferredBackBufferHeight = (int)(GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Height * 0.9)
+                PreferredBackBufferWidth = 300,
+                PreferredBackBufferHeight = 200
             };
             Content.RootDirectory = "Content";
-            viewport = new Viewport2D();
+            viewport = new Viewport2D
+            {
+                Width = (int)(graphics.PreferredBackBufferWidth * 0.8),
+                Height = (int)(graphics.PreferredBackBufferHeight * 0.8)
+            };
             CenterViewport(gameState.Player.Position);
         }
 
         private void CenterViewport(Point? point = null)
         {
-            var size = viewport.ToTileSize(graphics.PreferredBackBufferWidth, graphics.PreferredBackBufferHeight);
-            int left;
-            int top;
-            if (point == null)
-            {
-                // center on middle of floor
-                left = (size.Item1 / 2) - (gameState.CurrentFloor.Settings.Width / 2);
-                top = (size.Item2 / 2) - (gameState.CurrentFloor.Settings.Height / 2);
-            }
-            else
-            {
-                // center given point
-                left = (size.Item1 / 2) - (point.Value.X);
-                top = (size.Item2 / 2) - (point.Value.Y);
-            }
-            viewport.Left = left;
-            viewport.Top = top;
+            //var size = viewport.ToTileSize(graphics.PreferredBackBufferWidth, graphics.PreferredBackBufferHeight);
+            //int left;
+            //int top;
+            //if (point == null)
+            //{
+            //    // center on middle of floor
+            //    left = (size.Item1 / 2) - (gameState.CurrentFloor.Settings.Width / 2);
+            //    top = (size.Item2 / 2) - (gameState.CurrentFloor.Settings.Height / 2);
+            //}
+            //else
+            //{
+            //    // center given point
+            //    left = (-2 * point.Value.X + size.Item1) / 2;
+            //    top = (-2 * point.Value.Y + size.Item2) / 2;
+            //}
+            //viewport.Left = left;
+            //viewport.Top = top;
         }
 
         /// <summary>
@@ -93,7 +97,17 @@ namespace Dungeon.Game
         {
             IsMouseVisible = true;
             Window.AllowUserResizing = true;
+            Window.ClientSizeChanged += SizeChanged;
             base.Initialize();
+        }
+
+        private void SizeChanged(object sender, EventArgs e)
+        {
+            var window = (GameWindow) sender;
+            graphics.PreferredBackBufferHeight = window.ClientBounds.Height;
+            graphics.PreferredBackBufferWidth = window.ClientBounds.Width;
+            viewport.Width = (int) (graphics.PreferredBackBufferWidth * 0.8);
+            viewport.Height = (int) (graphics.PreferredBackBufferHeight * 0.8);
         }
 
         /// <summary>
@@ -163,12 +177,7 @@ namespace Dungeon.Game
                 return;
             }
 
-            // Only do update if we have a pending action or the player is already moving.
-            if (inputAction != null || gameState.Player.HasNextStep)
-            {
-                inputAction?.Invoke();
-                gameState.Step();
-            }
+            gameState.Update(inputAction);
 
             lastUpdate = gameTime.TotalGameTime;
             inputAction = null;
@@ -279,7 +288,7 @@ namespace Dungeon.Game
                 inputAction = (() => gameState.Ascend());
                 CenterViewport(gameState.Player.Position);
             }
-            
+
             prevKeyboardState = keyboardState;
         }
 
@@ -309,56 +318,93 @@ namespace Dungeon.Game
             spriteBatch.Begin(samplerState: SamplerState.PointClamp);
 
             var visible = gameState.Player.GetVisiblePoints(gameState.CurrentFloor);
-            foreach (var point in visible)
-            {
-                spriteBatch.Draw(Textures[level[point.X, point.Y]], viewport.TranslatePoint(point.X, point.Y), Color.White);
-            }
+
+            DrawVisible(visible, level);
+
             DrawDoors(visible, Color.White);
 
-            foreach (var point in gameState.Player.SeenPoints)
-            {
-                if (!visible.Contains(point))
-                {
-                    spriteBatch.Draw(Textures[level[point.X, point.Y]], viewport.TranslatePoint(point.X, point.Y), SeenTileColor);
-                }
-            }
+            DrawSeenPoints(visible, level);
 
             DrawDoors(gameState.Player.SeenPoints, SeenTileColor);
 
+            DrawPath();
+
+            DrawCharacters(visible);
+
+            DrawLog();
+            
+            spriteBatch.End();
+
+            base.Draw(gameTime);
+        }
+
+        private void DrawVisible(HashSet<Point> visible, DungeonTile[,] level)
+        {
+            foreach (var point in visible)
+            {
+                var rect = viewport.TranslatePoint(point.X, point.Y);
+                if (viewport.ContainsTile(point))
+                {
+                    spriteBatch.Draw(Textures[level[point.X, point.Y]], rect, Color.White);
+                }
+            }
+        }
+
+        private void DrawSeenPoints(HashSet<Point> visible, DungeonTile[,] level)
+        {
+            foreach (var point in gameState.Player.SeenPoints)
+            {
+                var rect = viewport.TranslatePoint(point.X, point.Y);
+                if (!visible.Contains(point) && viewport.ContainsTile(point))
+                {
+                    spriteBatch.Draw(Textures[level[point.X, point.Y]], rect, SeenTileColor);
+                }
+            }
+        }
+
+        private void DrawPath()
+        {
             // Paint path for player
             // TODO: Remove this after debugging
             if (gameState.Player.Path != null)
             {
                 foreach (var point in gameState.Player.Path)
                 {
-                    spriteBatch.Draw(Textures[TextureKey.Path], viewport.TranslatePoint(point.X, point.Y), Color.White);
+                    if (viewport.ContainsTile(point))
+                    {
+                        spriteBatch.Draw(Textures[TextureKey.Path], viewport.TranslatePoint(point.X, point.Y), Color.White);
+                    }
                 }
             }
+        }
 
+        private void DrawCharacters(HashSet<Point> visible)
+        {
             // Draw characters
             foreach (var character in gameState.CurrentFloor.Characters)
             {
-                if (visible.Contains(character.Position))
+                if (viewport.ContainsTile(character.Position) && visible.Contains(character.Position))
                 {
-                    spriteBatch.Draw(Textures[character.TextureKey], viewport.TranslatePoint(character.Position.X, character.Position.Y), Color.White);
+                    spriteBatch.Draw(Textures[character.TextureKey],
+                        viewport.TranslatePoint(character.Position.X, character.Position.Y), Color.White);
                 }
             }
+        }
 
+        private void DrawLog()
+        {
             int topOffsetIndex = 0;
             foreach (var line in Log.GetLastLines(5))
             {
-                spriteBatch.DrawString(font, line, new Vector2(3, 15 * topOffsetIndex++ + 3), Color.White);
+                spriteBatch.DrawString(font, line.Line, new Vector2(3, 15 * topOffsetIndex++ + 3), line.Color);
             }
-            spriteBatch.End();
-
-            base.Draw(gameTime);
         }
 
         private void DrawDoors(HashSet<Point> visiblePoints, Color color)
         {
             foreach (var door in gameState.CurrentFloor.Doors)
             {
-                if (visiblePoints.Contains(door.Position))
+                if (viewport.ContainsTile(door.Position) && visiblePoints.Contains(door.Position))
                 {
                     Texture2D texture = Textures[door.TextureKey];
                     spriteBatch.Draw(texture, viewport.TranslatePoint(door.Position.X, door.Position.Y), color);
