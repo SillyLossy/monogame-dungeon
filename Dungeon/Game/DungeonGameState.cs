@@ -1,59 +1,69 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using Dungeon.Game.Common;
-using Dungeon.Game.Entities;
-using Dungeon.Game.Levels;
+using Dungeon.Game.Entities.Characters;
+using Dungeon.Game.World;
+using Dungeon.Game.World.Tiles;
+using Microsoft.Xna.Framework;
 using Newtonsoft.Json;
+using Priority_Queue;
+using Point = Dungeon.Game.Common.Point;
 
 namespace Dungeon.Game
 {
     public class DungeonGameState
     {
-        private static readonly IReadOnlyList<FloorSettings> PredefinedSettings = new List<FloorSettings>
-        {
-            new FloorSettings(1)
-            {
-                Width = 64,
-                Height = 64,
-                MaxRooms = 10,
-                MaxRoomXy = 15,
-                MinRoomXy = 7,
-                RandomConnections = 4,
-                RandomSpurs = 4,
-                RoomsOverlap = false,
-                MaxMonsters = 10,
-                MinMonsters = 4
-            }
-        }.AsReadOnly();
-
         [JsonProperty]
-        private List<DungeonFloor> floors = new List<DungeonFloor>();
+        private List<Floor> floors = new List<Floor>();
 
         [JsonProperty]
         private int currentFloor = 0;
 
         [JsonIgnore]
-        public DungeonFloor CurrentFloor => floors[currentFloor];
+        public Floor CurrentFloor
+        {
+            get
+            {
+                switch (PlayerLocation.Type)
+                {
+                    case LocationType.Dungeon:
+                        return World.Dungeons[PlayerLocation.Id].Floors[PlayerLocation.Depth];
+                    case LocationType.Cave:
+                        return World.Caves[PlayerLocation.Id].Floors[PlayerLocation.Depth];
+                    case LocationType.Island:
+                        return World.Islands[PlayerLocation.Id].Floors[0];
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
+            }
+        }
+        
+        public World.World World { get; } = new World.World(NewSeed);
+
+        public Location PlayerLocation = new Location(LocationType.Island, Guid.Empty, 0);
 
         [JsonIgnore]
-        public Character Player => CurrentFloor.Characters.OfType<Player>().FirstOrDefault();
+        public Character Player { get; set; }
+
+        private SimplePriorityQueue<Character, int> CurrentQueue { get; set; } = new SimplePriorityQueue<Character, int>();
+
+        private SimplePriorityQueue<Character, int> NextQueue { get; set; } = new SimplePriorityQueue<Character, int>();
 
         [JsonProperty]
-        private Dictionary<int, HashSet<Point>> seenPoints = new Dictionary<int, HashSet<Point>>();
+        private Dictionary<Location, HashSet<Point>> seenPoints = new Dictionary<Location, HashSet<Point>>();
 
         private static int NewSeed => (int)DateTime.UtcNow.Ticks;
 
         public DungeonGameState NewGame()
         {
-            for (int i = 0; i < PredefinedSettings.Count; i++)
-            {
-                GenerateFloor(i, PredefinedSettings[i]);
-            }
-            CurrentFloor.PlacePlayer(
-                new Player(
+            var initialLocationId = World.GenerateIsland();
+
+            PlayerLocation = new Location(LocationType.Island, initialLocationId);
+
+            seenPoints[PlayerLocation] = new HashSet<Point>();
+
+            Player = new Player(
                     "Player",
-                    TextureKey.Player,
                     new PrimaryAttributes
                     {
                         Agility = 5,
@@ -64,33 +74,49 @@ namespace Dungeon.Game
                         Perception = 5,
                         Strength = 5
                     },
-                    CurrentFloor.RandomEntranceNeighbor));
-            Player.SeenPoints = seenPoints[currentFloor];
+                    World.Islands[initialLocationId].Floors[0].Settings.InitialPoint,
+                    Sprites.Player);
+            Player.SeenPoints = seenPoints[PlayerLocation];
             return this;
-        }
-
-        private void GenerateFloor(int index, FloorSettings settings)
-        {
-            floors.Add(DungeonGenerator.GenerateFloor(NewSeed, settings));
-            seenPoints.Add(index, new HashSet<Point>());
         }
 
         // Advances the game state forward in time
         public void Update(Action inputAction)
         {
-            // Only do update if we have a pending action or the player is already moving.
-            if (inputAction == null && !Player.HasNextStep)
+            return;
+            if (WaitingForInput)
             {
                 return;
             }
 
-            inputAction?.Invoke();
-
-            foreach (var character in CurrentFloor.Characters.OrderByDescending(c => c.Sequence))
+            if (CurrentQueue.Count == 0)
             {
-                character.Update(this);
+                foreach (var character in CurrentFloor.Characters.OrderByDescending(c => c.Sequence))
+                {
+                    CurrentQueue.Enqueue(character, -character.Sequence);
+                }
             }
+
+            while (CurrentQueue.Count != 0)
+            {
+                var current = CurrentQueue.Dequeue();
+                if (current == Player)
+                {
+                    WaitingForInput = true;
+                }
+
+                var result = current.Update(this);
+                DungeonGame.Log.LogActionResult(result);
+                NextQueue.Enqueue(current, -current.Sequence);
+            }
+
+            var tempQueue = CurrentQueue;
+            CurrentQueue = NextQueue;
+            NextQueue = tempQueue;
+            NextQueue.Clear();
         }
+
+        public bool WaitingForInput { get; set; }
 
         public void MovePlayer(Direction direction)
         {
@@ -108,11 +134,11 @@ namespace Dungeon.Game
                 {
                     if (point == Player.Position)
                     {
-                        if (CurrentFloor.Tiles[point.X, point.Y] == DungeonTile.LadderDown)
+                        if (CurrentFloor.Tiles[point] == Tile.LadderDown)
                         {
                             Descend();
                         }
-                        else if (CurrentFloor.Tiles[point.X, point.Y] == DungeonTile.LadderUp)
+                        else if (CurrentFloor.Tiles[point] == Tile.LadderUp)
                         {
                             Ascend();
                         }
@@ -127,7 +153,7 @@ namespace Dungeon.Game
 
         public void Ascend()
         {
-            if (CurrentFloor.Tiles[Player.Position.X, Player.Position.Y] == DungeonTile.LadderUp)
+            if (CurrentFloor.Tiles[Player.Position] == Tile.LadderUp)
             {
                 if (currentFloor - 1 < 0)
                 {
@@ -138,29 +164,77 @@ namespace Dungeon.Game
                 ReplacePlayer(currentFloor - 1);
                 CurrentFloor.GenerateMonsters(isFirstEnter: false);
             }
+            else
+            {
+                DungeonGame.Log.PushLine(new LogLine("You can't go up here", Color.Blue));
+            }
         }
 
         public void Descend()
         {
-            if (CurrentFloor.Tiles[Player.Position.X, Player.Position.Y] == DungeonTile.LadderDown)
+            if (CurrentFloor.Tiles[Player.Position] == Tile.LadderDown)
             {
-                if (currentFloor + 1 >= floors.Count)
-                {
-                    GenerateFloor(currentFloor + 1, new FloorSettings(currentFloor + 2));
-                }
-
                 ReplacePlayer(currentFloor + 1);
                 CurrentFloor.GenerateMonsters(isFirstEnter: false);
+            }
+            else
+            {
+                DungeonGame.Log.PushLine(new LogLine("You can't go down here", Color.Blue));
             }
         }
 
         private void ReplacePlayer(int newFloor)
         {
             Character player = CurrentFloor.RemovePlayer(Player);
+            PlayerLocation = new Location(PlayerLocation.Type, PlayerLocation.Id, newFloor);
             currentFloor = newFloor;
             player.Position = CurrentFloor.RandomEntranceNeighbor;
-            player.SeenPoints = seenPoints[currentFloor];
+            player.SeenPoints = seenPoints[PlayerLocation];
             CurrentFloor.PlacePlayer(player);
+            CurrentQueue.Clear();
+            NextQueue.Clear();
+        }
+
+        private Dictionary<Point, Tile> lastTiles;
+        private Common.Rectangle lastRectangle;
+
+        public Dictionary<Point, Tile> GetTiles(Common.Rectangle rectangle)
+        {
+            var loc = PlayerLocation;
+
+            switch (loc.Type)
+            {
+                case LocationType.Island:
+                    if (rectangle == lastRectangle)
+                    {
+                        return lastTiles;
+                    }
+                    var tiles = new Dictionary<Point, Tile>();
+                    int maxW = World.Islands[loc.Id].Floors[0].Settings.Width;
+                    int maxH = World.Islands[loc.Id].Floors[0].Settings.Height;
+                    var islandTerrain = World.Islands[loc.Id].Floors[0].Tiles;
+                    for (int i = rectangle.X; i < rectangle.W + rectangle.X; i++)
+                    {
+                        for (int j = rectangle.Y; j < rectangle.H + rectangle.Y; j++)
+                        {
+                            if (i < 0 || j < 0 || i >= maxW || j >= maxH)
+                            {
+                                continue;
+                            }
+                            var point = new Point(i, j);
+                            tiles[point] = islandTerrain[point];
+                        }
+                    }
+                    lastRectangle = rectangle;
+                    lastTiles = tiles;
+                    return tiles;
+                case LocationType.Dungeon:
+                    return World.Dungeons[loc.Id].Floors[loc.Depth].Tiles;
+                case LocationType.Cave:
+                    return World.Caves[loc.Id].Floors[loc.Depth].Tiles;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
         }
     }
 }

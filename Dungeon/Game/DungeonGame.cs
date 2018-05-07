@@ -1,12 +1,11 @@
-﻿using Dungeon.Game.Levels;
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using Dungeon.Game.Entities;
+using Dungeon.Game.Entities.Characters;
+using Dungeon.Game.World.Tiles;
 using Newtonsoft.Json;
 using Point = Dungeon.Game.Common.Point;
 
@@ -26,7 +25,7 @@ namespace Dungeon.Game
         private MouseState? prevMouseState;
         private MouseState? prevViewportMouseState;
         private Action inputAction;
-        private Dictionary<object, Texture2D> Textures;
+        private Texture2D Sprites;
         private TimeSpan lastUpdate;
         private KeyboardState? prevKeyboardState;
         private readonly DungeonGameState gameState;
@@ -37,23 +36,40 @@ namespace Dungeon.Game
         public static TextGameLog Log { get; } = new TextGameLog();
         public static Random Random { get; } = new Random();
 
+        private IReadOnlyList<Rectangle> spriteRects = PrecalculateRectangles();
+
+        private static IReadOnlyList<Rectangle> PrecalculateRectangles()
+        {
+            var list = new List<Rectangle>();
+
+            const int size = Viewport2D.TileSize;
+
+            for (int i = 0; i < 1000; i++)
+            {
+                list.Add(new Rectangle(size * i, 0, size, size));
+            }
+
+            return list;
+        }
+
+
         private static DungeonGameState LoadGame()
         {
             try
             {
-                return JsonConvert.DeserializeObject<DungeonGameState>(File.ReadAllText(SaveFilePath));
+                // return JsonConvert.DeserializeObject<DungeonGameState>(File.ReadAllText(SaveFilePath), SerializerSettings);
             }
             catch (Exception)
             {
-                return new DungeonGameState().NewGame();
             }
+            return new DungeonGameState().NewGame();
         }
 
         private static void SaveGame(DungeonGameState state)
         {
             try
             {
-                File.WriteAllText(SaveFilePath, JsonConvert.SerializeObject(state));
+                // File.WriteAllText(SaveFilePath, JsonConvert.SerializeObject(state, SerializerSettings));
             }
             catch (Exception)
             {
@@ -72,8 +88,8 @@ namespace Dungeon.Game
 
             graphics = new GraphicsDeviceManager(this)
             {
-                PreferredBackBufferWidth = 300,
-                PreferredBackBufferHeight = 200
+                //PreferredBackBufferWidth = 300,
+                //PreferredBackBufferHeight = 200
             };
             Content.RootDirectory = "Content";
             viewport = new Viewport2D();
@@ -100,8 +116,8 @@ namespace Dungeon.Game
             var window = (GameWindow) sender;
             graphics.PreferredBackBufferHeight = window.ClientBounds.Height;
             graphics.PreferredBackBufferWidth = window.ClientBounds.Width;
-            viewport.Width = (int) (graphics.PreferredBackBufferWidth * 0.7);
-            viewport.Height = (int) (graphics.PreferredBackBufferHeight * 0.7);
+            viewport.Width = (int) (graphics.PreferredBackBufferWidth );
+            viewport.Height = (int) (graphics.PreferredBackBufferHeight );
         }
 
         /// <summary>
@@ -115,22 +131,7 @@ namespace Dungeon.Game
             defaultFont = Content.Load<SpriteFont>("DefaultFont");
             smallFont = Content.Load<SpriteFont>("SmallFont");
 
-            Textures = new Dictionary<object, Texture2D>
-            {
-                [DungeonTile.Floor] = Content.Load<Texture2D>(TextureKey.FromTile(DungeonTile.Floor)),
-                [DungeonTile.Stone] = Content.Load<Texture2D>(TextureKey.FromTile(DungeonTile.Stone)),
-                [DungeonTile.Wall] = Content.Load<Texture2D>(TextureKey.FromTile(DungeonTile.Wall)),
-                [TextureKey.Player] = Content.Load<Texture2D>(TextureKey.Player),
-                [TextureKey.DoorOpen] = Content.Load<Texture2D>(TextureKey.DoorOpen),
-                [TextureKey.DoorClosed] = Content.Load<Texture2D>(TextureKey.DoorClosed),
-                [DungeonTile.LadderUp] = Content.Load<Texture2D>(TextureKey.FromTile(DungeonTile.LadderUp)),
-                [DungeonTile.LadderDown] = Content.Load<Texture2D>(TextureKey.FromTile(DungeonTile.LadderDown)),
-                [TextureKey.Path] = CreateTexture(new Color(0, 255, 0, 25), 8, 8),
-                [TextureKey.Target] = CreateTexture(Color.Green, 8, 8),
-                [DungeonTile.Test] = CreateTexture(Color.IndianRed, 8, 8),
-                ["Textures/Goblin"] = Content.Load<Texture2D>("Textures/Goblin"),
-                ["Textures/Tortoise"] = Content.Load<Texture2D>("Textures/Tortoise")
-            };
+            Sprites = Content.Load<Texture2D>("Sprites");
         }
 
         private Texture2D CreateTexture(Color color, int width, int height)
@@ -147,10 +148,7 @@ namespace Dungeon.Game
         protected override void UnloadContent()
         {
             SaveGame(gameState);
-            foreach (var pair in Textures)
-            {
-                pair.Value.Dispose();
-            }
+            Sprites.Dispose();
         }
 
         /// <summary>
@@ -161,7 +159,9 @@ namespace Dungeon.Game
         protected override void Update(GameTime gameTime)
         {
             if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed || Keyboard.GetState().IsKeyDown(Keys.Escape))
+            {
                 Exit();
+            }
 
             if ((gameTime.TotalGameTime - lastUpdate).TotalMilliseconds < TimeBetweenUpdates)
             {
@@ -206,8 +206,8 @@ namespace Dungeon.Game
                     int topDelta = oldPos.Y - newPos.Y;
                     if (topDelta != 0 || leftDelta != 0)
                     {
-                        viewport.Left -= leftDelta;
-                        viewport.Top -= topDelta;
+                        viewport.Left += leftDelta;
+                        viewport.Top += topDelta;
                         viewport.IsDragged = true;
                     }
                 }
@@ -306,55 +306,63 @@ namespace Dungeon.Game
         /// <param name="gameTime">Provides a snapshot of timing values.</param>
         protected override void Draw(GameTime gameTime)
         {
-            var level = gameState.CurrentFloor.Tiles;
-            GraphicsDevice.Clear(Color.Black);
+            Tuple<int, int> size = viewport.ToTileSize();
+            int x = viewport.Left, y = viewport.Top, w = size.Item1, h = size.Item2;
+            Dictionary<Point, Tile> level = gameState.GetTiles(new Common.Rectangle(x, y, w, h));
 
-            // Begin draw
+            GraphicsDevice.Clear(Color.Black);
+            
             spriteBatch.Begin(samplerState: SamplerState.PointClamp);
 
-            var visible = gameState.Player.GetVisiblePoints(gameState.CurrentFloor);
+            foreach (KeyValuePair<Point, Tile> pair in level)
+            {
+                var target = viewport.TranslatePoint(pair.Key);
+                spriteBatch.Draw(Sprites, target, spriteRects[pair.Value.SpriteId], Color.White);
+            }
 
-            DrawVisible(visible, level);
+            //var visible = gameState.Player.GetVisiblePoints(gameState.CurrentFloor);
 
-            DrawDoors(visible, Color.White);
+            // DrawVisible(visible, level);
 
-            DrawSeenPoints(visible, level);
+            //DrawDoors(visible, Color.White);
 
-            DrawDoors(gameState.Player.SeenPoints, SeenTileColor);
+            //DrawSeenPoints(visible, level);
 
-            DrawPath();
+            //DrawDoors(gameState.Player.SeenPoints, SeenTileColor);
 
-            DrawCharacters(visible);
+            //DrawPath();
 
-            DrawLog();
+            //DrawCharacters(visible);
 
-            DrawStatus();
+            //DrawLog();
+
+            //DrawStatus();
 
             spriteBatch.End();
 
             base.Draw(gameTime);
         }
 
-        private void DrawVisible(HashSet<Point> visible, DungeonTile[,] level)
+        private void DrawVisible(HashSet<Point> visible, Tile[,] level)
         {
             foreach (var point in visible)
             {
-                var rect = viewport.TranslatePoint(point.X, point.Y);
+                var rect = viewport.TranslatePoint(point);
                 if (viewport.ContainsTile(point))
                 {
-                    spriteBatch.Draw(Textures[level[point.X, point.Y]], rect, Color.White);
+                    //spriteBatch.Draw(Sprites[level[point.X, point.Y]], rect,  Color.White);
                 }
             }
         }
 
-        private void DrawSeenPoints(HashSet<Point> visible, DungeonTile[,] level)
+        private void DrawSeenPoints(HashSet<Point> visible, Tile[,] level)
         {
             foreach (var point in gameState.Player.SeenPoints)
             {
-                var rect = viewport.TranslatePoint(point.X, point.Y);
+                var rect = viewport.TranslatePoint(point);
                 if (!visible.Contains(point) && viewport.ContainsTile(point))
                 {
-                    spriteBatch.Draw(Textures[level[point.X, point.Y]], rect, SeenTileColor);
+                    //spriteBatch.Draw(Sprites[level[point.X, point.Y]], rect, SeenTileColor);
                 }
             }
         }
@@ -369,7 +377,7 @@ namespace Dungeon.Game
                 {
                     if (viewport.ContainsTile(point))
                     {
-                        spriteBatch.Draw(Textures[TextureKey.Path], viewport.TranslatePoint(point.X, point.Y), Color.White);
+                        //spriteBatch.Draw(Sprites[Game.Sprites.Path], viewport.TranslatePoint(point.X, point.Y), Color.White);
                     }
                 }
             }
@@ -382,8 +390,8 @@ namespace Dungeon.Game
             {
                 if (viewport.ContainsTile(character.Position) && visible.Contains(character.Position))
                 {
-                    spriteBatch.Draw(Textures[character.TextureKey],
-                        viewport.TranslatePoint(character.Position.X, character.Position.Y), Color.White);
+                    //spriteBatch.Draw(Sprites[character.TextureKey],
+                    //    viewport.TranslatePoint(character.Position.X, character.Position.Y), Color.White);
                 }
             }
         }
@@ -393,7 +401,7 @@ namespace Dungeon.Game
             const int xMargin = 3, yMargin = 2;
 
             var logRect = new Rectangle(0, viewport.Height, viewport.Width, Window.ClientBounds.Height - viewport.Height);
-            spriteBatch.Draw(Textures[TextureKey.Target], logRect, Color.Black);
+            //spriteBatch.Draw(Sprites[Game.Sprites.Target], logRect, Color.Black);
 
             int lineCount = (int) Math.Floor((logRect.Height - yMargin * 2) / (double)(smallFont.LineSpacing));
             
@@ -409,7 +417,7 @@ namespace Dungeon.Game
             const int xMargin = 3, yMargin = 2;
 
             var statusRect = new Rectangle(viewport.Width, 0, Window.ClientBounds.Width - viewport.Width, Window.ClientBounds.Height);
-            spriteBatch.Draw(Textures[TextureKey.Target], statusRect, Color.Black);
+            //spriteBatch.Draw(Sprites[Game.Sprites.Target], statusRect, Color.Black);
 
             var player = gameState.Player;
             
@@ -435,8 +443,8 @@ namespace Dungeon.Game
             {
                 if (viewport.ContainsTile(door.Position) && visiblePoints.Contains(door.Position))
                 {
-                    Texture2D texture = Textures[door.TextureKey];
-                    spriteBatch.Draw(texture, viewport.TranslatePoint(door.Position.X, door.Position.Y), color);
+                    //Texture2D texture = Sprites[door.TextureKey];
+                    //spriteBatch.Draw(texture, viewport.TranslatePoint(door.Position.X, door.Position.Y), color);
                 }
             }
         }

@@ -5,11 +5,12 @@ namespace Dungeon.Game
 {
     public class Viewport2D
     {
-        private float Scale { get; set; } = 1f;
-        private const float MinScale = 1f;
-        private const float MaxScale = 8f;
-        private const int TileSize = 32;
-        private const float ScaleIncrement = 1.5f;
+        public const int TileSize = 32;
+        public double RealTileSize => TileSize * Scale;
+        private double Scale { get; set; } = 1f;
+        private const double MinScale = 0.02f;
+        private const double MaxScale = 8f;
+        private const double ScaleIncrement = 1.5f;
 
         public void UpScale()
         {
@@ -29,31 +30,32 @@ namespace Dungeon.Game
             Scale /= ScaleIncrement;
         }
 
-        public int Left { get; set; }
+        public int Left { get; set; } = 200;
 
-        public int Top { get; set; }
+        public int Top { get; set; } = 200;
 
         public bool IsDragged { get; set; }
         public int Width { get; set; }
         public int Height { get; set; }
 
-        public Tuple<int, int> ToTileSize(int w, int h)
+        public Tuple<int, int> ToTileSize()
         {
-            return new Tuple<int, int>((int)Math.Round(w / (Scale * TileSize)), (int)Math.Round(h / (Scale * TileSize)));
+            return new Tuple<int, int>((int)Math.Round(Width / RealTileSize),
+                                       (int)Math.Round(Height / RealTileSize));
         }
 
-        public Microsoft.Xna.Framework.Rectangle TranslatePoint(int x, int y)
+        public Microsoft.Xna.Framework.Rectangle TranslatePoint(Point point)
         {
-            return new Microsoft.Xna.Framework.Rectangle((int)Math.Ceiling((x + Left) * Scale * TileSize),
-                                 (int)Math.Ceiling((y + Top) * Scale * TileSize),
-                                 (int)Math.Ceiling(Scale * TileSize),
-                                 (int)Math.Ceiling(Scale * TileSize));
+            return new Microsoft.Xna.Framework.Rectangle((int)Math.Ceiling((-Left + point.X) * Scale * TileSize),
+                (int)Math.Ceiling((-Top + point.Y) * Scale * TileSize),
+                (int)Math.Ceiling(Scale * TileSize),
+                (int)Math.Ceiling(Scale * TileSize));
         }
 
         public Point TranslateMouse(int x, int y)
         {
-            return new Point(((int)Math.Floor((double) x / (Scale * TileSize)) - Left),
-                             ((int)Math.Floor((double) y / (Scale * TileSize)) - Top));
+            return new Point(((int)Math.Floor(x / RealTileSize) - Left),
+                             ((int)Math.Floor(y / RealTileSize) - Top));
         }
 
         public bool ContainsTile(Point point)
@@ -63,25 +65,25 @@ namespace Dungeon.Game
         }
 
 
-        public void Center(Point point = null)
+        public void Center(Point point)
         {
-            var size = ToTileSize(Width, Height);
-            int left;
-            int top;
-            if (point == null)
-            {
-                // center on middle of floor
-                left = (size.Item1 / 2) - (Width / 2);
-                top = (size.Item2 / 2) - (Height / 2);
-            }
-            else
-            {
-                // center given point
-                left = (-2 * point.X + size.Item1) / 2;
-                top = (-2 * point.Y + size.Item2) / 2;
-            }
-            Left = left;
-            Top = top;
+            //var size = ToTileSize();
+            //int left;
+            //int top;
+            //if (point == null)
+            //{
+            //    // center on middle of floor
+            //    left = (size.Item1 / 2) - (Width / 2);
+            //    top = (size.Item2 / 2) - (Height / 2);
+            //}
+            //else
+            //{
+            //    // center given point
+            //    left = (-2 * point.X + size.Item1) / 2;
+            //    top = (-2 * point.Y + size.Item2) / 2;
+            //}
+            //Left = left;
+            //Top = top;
         }
 
     }

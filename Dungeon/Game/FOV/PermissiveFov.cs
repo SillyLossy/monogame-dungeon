@@ -8,9 +8,9 @@ namespace Dungeon.Game.FOV
     {
         private readonly int mapWidth;
         private readonly int mapHeight;
-        private readonly Func<int, int, bool> isTransparent;
+        private readonly Func<Point, bool> isTransparent;
 
-        public PermissiveFov(int mapWidth, int mapHeight, Func<int, int, bool> isTransparent)
+        public PermissiveFov(int mapWidth, int mapHeight, Func<Point, bool> isTransparent)
         {
             this.mapWidth = mapWidth;
 
@@ -74,12 +74,12 @@ namespace Dungeon.Game.FOV
                 int j;
                 for (j = startJ; j <= maxJ && viewIndex < activeViews.Count; ++j)
                 {
-                    VisitPoint(data, i - j, j, deltaX, deltaY, viewIndex, activeViews);
+                    VisitPoint(data, i - j, j, deltaX, deltaY, ref viewIndex, activeViews);
                 }
             }
         }
 
-        private void VisitPoint(FovData data, int x, int y, int deltaX, int deltaY, int viewIndex, List<View> activeViews)
+        private static void VisitPoint(FovData data, int x, int y, int deltaX, int deltaY, ref int viewIndex, List<View> activeViews)
         {
             var topLeft = new Point(x, y + 1);
             var bottomRight = new Point(x + 1, y); // The top left and bottom right corners of the current coordinate.
@@ -112,7 +112,7 @@ namespace Dungeon.Game.FOV
 
             data.Visited.Add(new Point(pt.X, pt.Y));
 
-            if (data.IsTransparent(pt.X, pt.Y))
+            if (data.IsTransparent(pt))
             {
                 // The current coordinate does not block sight and therefore has no effect on the view.
                 return;
@@ -209,7 +209,7 @@ namespace Dungeon.Game.FOV
 
         private class FovData
         {
-            public Func<int, int, bool> IsTransparent { get; set; }
+            public Func<Point, bool> IsTransparent { get; set; }
             public int StartX { get; set; }
             public int StartY { get; set; }
             public HashSet<Point> Visited { get; set; }

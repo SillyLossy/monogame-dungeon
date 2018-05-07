@@ -42,48 +42,79 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Game\Common\AbstractRange.cs" />
+    <Compile Include="Game\Common\DoubleRange.cs" />
     <Compile Include="Game\Common\ListExtensions.cs" />
+    <Compile Include="Game\Common\NumberUtil.cs" />
     <Compile Include="Game\Common\Point.cs" />
+    <Compile Include="Game\Common\PoissonDisk.cs" />
+    <Compile Include="Game\Common\Rectangle.cs" />
     <Compile Include="Game\Direction.cs" />
     <Compile Include="Game\DungeonGameState.cs" />
-    <Compile Include="Game\Entities\Armor.cs" />
-    <Compile Include="Game\Entities\Door.cs" />
-    <Compile Include="Game\Entities\Character.cs" />
-    <Compile Include="Game\Entities\Effect.cs" />
-    <Compile Include="Game\Entities\EquipSlot.cs" />
-    <Compile Include="Game\Entities\GameObject.cs" />
-    <Compile Include="Game\Entities\Inventory.cs" />
-    <Compile Include="Game\Entities\Item.cs" />
-    <Compile Include="Game\Entities\ItemTrait.cs" />
-    <Compile Include="Game\Entities\Monster.cs" />
-    <Compile Include="Game\Entities\MonsterFactory.cs" />
-    <Compile Include="Game\Entities\Player.cs" />
-    <Compile Include="Game\Entities\PrimaryAttributes.cs" />
-    <Compile Include="Game\Entities\Range.cs" />
-    <Compile Include="Game\Entities\Rarity.cs" />
-    <Compile Include="Game\Entities\Skill.cs" />
-    <Compile Include="Game\Entities\StackedItem.cs" />
-    <Compile Include="Game\Entities\Weapon.cs" />
-    <Compile Include="Game\Entities\WeaponTrait.cs" />
+    <Compile Include="Game\Entities\Characters\ActionResult.cs" />
+    <Compile Include="Game\Entities\Characters\AttackResult.cs" />
+    <Compile Include="Game\Entities\Items\ItemFactory.cs" />
+    <Compile Include="Game\Entities\Characters\SimpleResult.cs" />
+    <Compile Include="Game\Entities\Items\WeaponFactory.cs" />
+    <Compile Include="Game\Entities\Items\Armor.cs" />
+    <Compile Include="Game\World\Door.cs" />
+    <Compile Include="Game\Entities\Characters\Character.cs" />
+    <Compile Include="Game\Entities\Common\Effect.cs" />
+    <Compile Include="Game\Entities\Items\EquipSlot.cs" />
+    <Compile Include="Game\Entities\Common\GameObject.cs" />
+    <Compile Include="Game\Entities\Items\Inventory.cs" />
+    <Compile Include="Game\Entities\Items\Item.cs" />
+    <Compile Include="Game\Entities\Items\ItemTrait.cs" />
+    <Compile Include="Game\Entities\Characters\Monster.cs" />
+    <Compile Include="Game\Entities\Characters\MonsterFactory.cs" />
+    <Compile Include="Game\Entities\Characters\Player.cs" />
+    <Compile Include="Game\Entities\Characters\PrimaryAttributes.cs" />
+    <Compile Include="Game\Common\IntRange.cs" />
+    <Compile Include="Game\Entities\Common\Rarity.cs" />
+    <Compile Include="Game\Entities\Characters\Skill.cs" />
+    <Compile Include="Game\Entities\Items\StackedItem.cs" />
+    <Compile Include="Game\Entities\Items\Weapon.cs" />
+    <Compile Include="Game\Entities\Items\WeaponTrait.cs" />
     <Compile Include="Game\FOV\PermissiveFov.cs" />
     <Compile Include="Game\FOV\Line.cs" />
     <Compile Include="Game\FOV\View.cs" />
     <Compile Include="Game\FOV\ViewBump.cs" />
+    <Compile Include="Game\World\Generators\AbstractFloorSettings.cs" />
+    <Compile Include="Game\World\Generators\IslandFloorSettings.cs" />
+    <Compile Include="Game\World\Levels\Island.cs" />
+    <Compile Include="Game\World\Generators\IslandGenerator.cs" />
+    <Compile Include="Game\World\Levels\AbstractLevel.cs" />
+    <Compile Include="Game\World\Levels\Cave.cs" />
+    <Compile Include="Game\World\Generators\CaveFloorSettings.cs" />
+    <Compile Include="Game\World\Generators\CaveGenerator.cs" />
+    <Compile Include="Game\World\Levels\Dungeon.cs" />
+    <Compile Include="Game\World\Generators\LevelGenerator.cs" />
+    <Compile Include="Game\World\World.cs" />
+    <Compile Include="Game\World\Location.cs" />
+    <Compile Include="Game\World\LocationType.cs" />
+    <Compile Include="Game\LogLine.cs" />
     <Compile Include="Game\TextGameLog.cs" />
-    <Compile Include="Game\Levels\DungeonGenerator.cs" />
-    <Compile Include="Game\Entities\Entity.cs" />
-    <Compile Include="Game\Levels\DungeonFloor.cs" />
-    <Compile Include="Game\Levels\DungeonTile.cs" />
-    <Compile Include="Game\Levels\FloorSettings.cs" />
-    <Compile Include="Game\Levels\Join.cs" />
+    <Compile Include="Game\World\Generators\DungeonGenerator.cs" />
+    <Compile Include="Game\Entities\Common\Entity.cs" />
+    <Compile Include="Game\World\Floor.cs" />
+    <Compile Include="Game\World\Tiles\FloorTile.cs" />
+    <Compile Include="Game\World\Tiles\Tile.cs" />
+    <Compile Include="Game\World\Generators\DungeonFloorSettings.cs" />
+    <Compile Include="Game\World\Join.cs" />
     <Compile Include="Game\DungeonGame.cs" />
-    <Compile Include="Game\Levels\PathFinder.cs" />
+    <Compile Include="Game\World\PathFinder.cs" />
     <Compile Include="Game\Viewport2D.cs" />
+    <Compile Include="Game\World\Tiles\WallTile.cs" />
+    <Compile Include="Game\World\Tiles\WarpTile.cs" />
+    <Compile Include="Game\World\Tiles\WaterTile.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Game\TextureKey.cs" />
+    <Compile Include="Game\Sprites.cs" />
   </ItemGroup>
   <ItemGroup>
+    <Reference Include="LibNoise, Version=0.2.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\LibNoise.0.2\lib\NET45\LibNoise.dll</HintPath>
+    </Reference>
     <Reference Include="MonoGame.Framework">
       <HintPath>$(MonoGameInstallDirectory)\MonoGame\v3.0\Assemblies\DesktopGL\MonoGame.Framework.dll</HintPath>
     </Reference>
@@ -149,6 +180,9 @@
     </None>
     <None Include="app.config" />
     <None Include="app.manifest" />
+    <Content Include="gradient.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

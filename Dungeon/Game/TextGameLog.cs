@@ -1,30 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using Dungeon.Game.Entities;
+using Dungeon.Game.Entities.Characters;
 using Microsoft.Xna.Framework;
 
 namespace Dungeon.Game
 {
-    public class LogLine
-    {
-        public string Line { get; private set; }
-        public Color Color { get; private set; }
-
-        public LogLine(string line, Color color)
-        {
-            Line = line;
-            Color = color;
-        }
-
-        public LogLine(string line)
-        {
-            Line = line;
-            Color = Color.White;
-        }
-    }
-
     public class TextGameLog
     {
 
@@ -39,20 +20,8 @@ namespace Dungeon.Game
         {
             return lines.Skip(Math.Max(0, lines.Count - count));
         }
-
-        public void LogAttack(AttackResult result)
-        {
-            if (result.Attacker is Player)
-            {
-                DescribePlayerAttack(result);
-            }
-            else
-            {
-                DescribeMonsterAttack(result);
-            }
-        }
-
-        private void DescribeMonsterAttack(AttackResult result)
+        
+        public void LogMonsterAttack(AttackResult result)
         {
             foreach (var blow in result.Blows)
             {
@@ -72,7 +41,7 @@ namespace Dungeon.Game
             }
         }
 
-        private void DescribePlayerAttack(AttackResult result)
+        public void LogPlayerAttack(AttackResult result)
         {
             foreach (var blow in result.Blows)
             {
@@ -91,6 +60,11 @@ namespace Dungeon.Game
                 lines.AddLast(new LogLine(string.Format("You kill the {0}!", result.Target.Name), Color.Red));
             }
             
+        }
+
+        public void LogActionResult(ActionResult result)
+        {
+            throw new NotImplementedException();
         }
     }
 }
