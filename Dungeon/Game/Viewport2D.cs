@@ -1,5 +1,5 @@
 ﻿using System;
-using Dungeon.Game.Common;
+using SpecialAdventure.Core.Common;
 
 namespace Dungeon.Game
 {

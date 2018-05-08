@@ -1,13 +1,15 @@
-﻿using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework.Input;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using Dungeon.Game.Entities.Characters;
-using Dungeon.Game.World.Tiles;
-using Newtonsoft.Json;
-using Point = Dungeon.Game.Common.Point;
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
+using SpecialAdventure.Core.Common;
+using SpecialAdventure.Core.Entities;
+using SpecialAdventure.Core.Entities.Characters;
+using SpecialAdventure.Core.Log;
+using SpecialAdventure.Core.World.Tiles;
+using Point = SpecialAdventure.Core.Common.Point;
 
 namespace Dungeon.Game
 {
@@ -28,44 +30,43 @@ namespace Dungeon.Game
         private Texture2D Sprites;
         private TimeSpan lastUpdate;
         private KeyboardState? prevKeyboardState;
-        private readonly DungeonGameState gameState;
+        private readonly GameState gameState;
         private readonly Viewport2D viewport;
         private static readonly Color SeenTileColor = new Color(100, 100, 100, 100);
         private SpriteFont defaultFont;
         private SpriteFont smallFont;
-        public static TextGameLog Log { get; } = new TextGameLog();
         public static Random Random { get; } = new Random();
 
-        private IReadOnlyList<Rectangle> spriteRects = PrecalculateRectangles();
+        private IReadOnlyList<Microsoft.Xna.Framework.Rectangle> spriteRects = PrecalculateRectangles();
 
-        private static IReadOnlyList<Rectangle> PrecalculateRectangles()
+        private static IReadOnlyList<Microsoft.Xna.Framework.Rectangle> PrecalculateRectangles()
         {
-            var list = new List<Rectangle>();
+            var list = new List<Microsoft.Xna.Framework.Rectangle>();
 
             const int size = Viewport2D.TileSize;
 
             for (int i = 0; i < 1000; i++)
             {
-                list.Add(new Rectangle(size * i, 0, size, size));
+                list.Add(new Microsoft.Xna.Framework.Rectangle(size * i, 0, size, size));
             }
 
             return list;
         }
 
 
-        private static DungeonGameState LoadGame()
+        private static GameState LoadGame()
         {
             try
             {
-                // return JsonConvert.DeserializeObject<DungeonGameState>(File.ReadAllText(SaveFilePath), SerializerSettings);
+                // return JsonConvert.DeserializeObject<GameState>(File.ReadAllText(SaveFilePath), SerializerSettings);
             }
             catch (Exception)
             {
             }
-            return new DungeonGameState().NewGame();
+            return new GameState().NewGame();
         }
 
-        private static void SaveGame(DungeonGameState state)
+        private static void SaveGame(GameState state)
         {
             try
             {
@@ -76,11 +77,6 @@ namespace Dungeon.Game
                 // panic!
             }
         }
-
-        private static readonly JsonSerializerSettings SerializerSettings = new JsonSerializerSettings
-        {
-            TypeNameHandling = TypeNameHandling.Auto
-        };
 
         public DungeonGame()
         {
@@ -290,7 +286,7 @@ namespace Dungeon.Game
 
         private void MovePlayerByClick(MouseState mouseState)
         {
-            var bufferRect = new Rectangle(0, 0, graphics.PreferredBackBufferWidth, graphics.PreferredBackBufferHeight);
+            var bufferRect = new Microsoft.Xna.Framework.Rectangle(0, 0, graphics.PreferredBackBufferWidth, graphics.PreferredBackBufferHeight);
 
             // prevent processing mouse outside the window
             if (bufferRect.Contains(mouseState.X, mouseState.Y))
@@ -308,7 +304,7 @@ namespace Dungeon.Game
         {
             Tuple<int, int> size = viewport.ToTileSize();
             int x = viewport.Left, y = viewport.Top, w = size.Item1, h = size.Item2;
-            Dictionary<Point, Tile> level = gameState.GetTiles(new Common.Rectangle(x, y, w, h));
+            Dictionary<Point, Tile> level = gameState.GetTiles(new SpecialAdventure.Core.Common.Rectangle(x, y, w, h));
 
             GraphicsDevice.Clear(Color.Black);
             
@@ -400,23 +396,28 @@ namespace Dungeon.Game
         {
             const int xMargin = 3, yMargin = 2;
 
-            var logRect = new Rectangle(0, viewport.Height, viewport.Width, Window.ClientBounds.Height - viewport.Height);
+            var logRect = new Microsoft.Xna.Framework.Rectangle(0, viewport.Height, viewport.Width, Window.ClientBounds.Height - viewport.Height);
             //spriteBatch.Draw(Sprites[Game.Sprites.Target], logRect, Color.Black);
 
             int lineCount = (int) Math.Floor((logRect.Height - yMargin * 2) / (double)(smallFont.LineSpacing));
             
             int topOffsetIndex = 0;
-            foreach (var line in Log.GetLastLines(lineCount))
+            foreach (var line in gameState.Log.GetLastLines(lineCount))
             {
-                spriteBatch.DrawString(smallFont, line.Line, new Vector2(logRect.X + xMargin, (logRect.Y + yMargin) + smallFont.LineSpacing * topOffsetIndex++), line.Color);
+                spriteBatch.DrawString(smallFont, line.Line, new Vector2(logRect.X + xMargin, (logRect.Y + yMargin) + smallFont.LineSpacing * topOffsetIndex++), LogColors[line.Type]);
             }
         }
+
+        private static readonly IReadOnlyDictionary<LineType, Color> LogColors = new Dictionary<LineType, Color>
+        {
+            { LineType.General, Color.White }
+        };
 
         private void DrawStatus()
         {
             const int xMargin = 3, yMargin = 2;
 
-            var statusRect = new Rectangle(viewport.Width, 0, Window.ClientBounds.Width - viewport.Width, Window.ClientBounds.Height);
+            var statusRect = new Microsoft.Xna.Framework.Rectangle(viewport.Width, 0, Window.ClientBounds.Width - viewport.Width, Window.ClientBounds.Height);
             //spriteBatch.Draw(Sprites[Game.Sprites.Target], statusRect, Color.Black);
 
             var player = gameState.Player;
@@ -424,7 +425,7 @@ namespace Dungeon.Game
             int expTillNext = Character.GetExperienceCap(player.Level + 1) - player.Experience;
             var lines = new List<LogLine>
             {
-                new LogLine(player.Name, Color.Yellow),
+                new LogLine(player.Name),
                 new LogLine(string.Format("Level {0} ({1} exp. till next)", player.Level, expTillNext)),
                 new LogLine(string.Format("Health: {0}/{1}", player.HitPoints, player.MaxHitPoints))
             };
@@ -433,7 +434,7 @@ namespace Dungeon.Game
             int topOffsetIndex = 0;
             foreach (var line in lines)
             {
-                spriteBatch.DrawString(smallFont, line.Line, new Vector2(statusRect.X + xMargin, (statusRect.Y + yMargin) + smallFont.LineSpacing * topOffsetIndex++), line.Color);
+                spriteBatch.DrawString(smallFont, line.Line, new Vector2(statusRect.X + xMargin, (statusRect.Y + yMargin) + smallFont.LineSpacing * topOffsetIndex++), LogColors[line.Type]);
             }
         }
 

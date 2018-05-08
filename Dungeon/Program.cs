@@ -1,6 +1,5 @@
 ﻿using System;
 using Dungeon.Game;
-using Dungeon.Game.Common;
 using Microsoft.Xna.Framework;
 
 namespace Dungeon
