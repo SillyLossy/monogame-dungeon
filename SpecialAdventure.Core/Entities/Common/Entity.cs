@@ -1,14 +1,13 @@
-﻿using SpecialAdventure.Core.Common;
-
-namespace SpecialAdventure.Core.Entities.Common
+﻿namespace SpecialAdventure.Core.Entities.Common
 {
     public abstract class Entity : GameObject
     {
-        public Point Position { get; set; }
+        public abstract bool IsPassable { get; }
 
-        protected Entity(Point initialPosition, int spriteId) : base(spriteId)
+        public abstract bool IsTransparent { get; }
+
+        protected Entity(int spriteId) : base(spriteId)
         {
-            Position = initialPosition;
         }
     }
 }

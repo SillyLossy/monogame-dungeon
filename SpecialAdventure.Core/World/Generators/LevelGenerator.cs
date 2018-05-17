@@ -8,14 +8,15 @@ namespace SpecialAdventure.Core.World.Generators
     {
         protected readonly Random Random;
         protected readonly IntRange DepthRange;
-        private const int NearestDepth = 5;
+        protected readonly World ParentWorld;
 
-        protected LevelGenerator(int seed, int minDepth, int maxDepth)
+        protected LevelGenerator(World world, int seed, int minDepth, int maxDepth)
         {
+            ParentWorld = world;
             Random = new Random(seed);
-            DepthRange = new IntRange(minDepth, maxDepth) { Random = Random, Nearest = NearestDepth };
+            DepthRange = new IntRange(minDepth, maxDepth) { Random = Random };
         }
 
-        public abstract AbstractLevel Generate();
+        public abstract Level Generate(Warp returnWarp);
     }
 }

@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace SpecialAdventure.Core.Entities.Common
 {
@@ -11,9 +12,17 @@ namespace SpecialAdventure.Core.Entities.Common
         // Points to a texture associated with this object
         public virtual int SpriteId { get; set; }
 
+        public Guid Id { get; }
+
         protected GameObject(int spriteId)
         {
+            Id = Guid.NewGuid();
             SpriteId = spriteId;
+        }
+
+        public override int GetHashCode()
+        {
+            return Id.GetHashCode();
         }
     }
 }

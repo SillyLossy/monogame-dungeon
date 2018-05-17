@@ -41,15 +41,17 @@ namespace SpecialAdventure.Core.World.Generators
         }
 
 
-        public IslandGenerator(int seed, int minDepth = 0, int maxDepth = 0) : base(seed, minDepth, maxDepth)
+        public IslandGenerator(World world, int seed, int minDepth = 0, int maxDepth = 0) : base(world, seed, minDepth, maxDepth)
         {
             moistureNoise = new SimplexPerlin(seed, NoiseQuality.Best);
         }
 
-        public override AbstractLevel Generate()
+        public override Level Generate(Warp parentWarp)
         {
             var settings = IslandFloorSettings.GetSettings(Random);
             var tiles = new Dictionary<Point, Tile>();
+            var id = Guid.NewGuid();
+            var location = new Location(LocationType.Island, id, 0);
 
             var heightMap = GenerateHeightMap(settings.Width, settings.Height, settings.TerrainVariability);
 
@@ -61,67 +63,76 @@ namespace SpecialAdventure.Core.World.Generators
                 }
             }
 
-            PlantTrees(tiles);
-            settings.InitialPoint = FindInitialPoint(tiles, settings);
-
-            var floor = new Floor(tiles, settings);
-
-            return new Island(new[] { floor });
+            var floor = new Floor(tiles, new Map<Point, Entity>(), settings);
+            PlaceLevels(floor, location);
+            PlantTrees(floor);
+            
+            return new Level(location, new[] { floor });
         }
 
-        private void PlantTrees(IDictionary<Point, Tile> tiles)
+        private void PlantTrees(Floor floor)
         {
+            const float baseTreeDistance = 10f;
             var disk = new PoissonDisk(Random.Next());
-            var points = disk.SampleRectangle(new Vector2(0, 0), new Vector2(2048, 2048), 10);
+            var points = disk.SampleRectangle(new Vector2(0, 0), new Vector2(floor.Settings.Width, floor.Settings.Height), baseTreeDistance);
             foreach (var point in points)
             {
-                if (tiles[point] is WaterTile)
+                if (floor.Tiles[point] is WaterTile)
                 {
                     continue;
                 }
 
-                var tile = tiles[point];
                 double roll = Random.NextDouble();
 
-                if (tile.SpriteId == Sprites.Sand)
+                bool plantTree = false;
+
+                switch (floor.Tiles[point].SpriteId)
                 {
-                    if (roll < 0.1)
-                    {
-                        tiles[point] = Tile.Reserved;
-                    }
+                    case Sprites.Sand:
+                        plantTree = roll < 0.1;
+                        break;
+                    case Sprites.ValleyGrass:
+                        plantTree = roll < 0.5;
+                        break;
+                    case Sprites.ForestGrass:
+                        plantTree = roll < 0.9;
+                        break;
                 }
 
-                if (tile.SpriteId == Sprites.ValleyGrass)
+                if (plantTree)
                 {
-                    if (roll < 0.5)
-                    {
-                        tiles[point] = Tile.Reserved;
-                    }
-                }
-
-                if (tile.SpriteId == Sprites.ForestGrass)
-                {
-                    if (roll < 0.9)
-                    {
-                        tiles[point] = Tile.Reserved;
-                    }
+                    floor.Entities.Add(point, new Tree(Sprites.Reserved));
                 }
             }
         }
 
-        private Point FindInitialPoint(Dictionary<Point, Tile> tiles, IslandFloorSettings settings)
+        private void PlaceLevels(Floor floor, Location location)
         {
-            for (int i = 0; i < settings.Width * settings.Height; i++)
+            const float levelDistance = 75f;
+            var disk = new PoissonDisk(Random.Next());
+            var points = disk.SampleRectangle(new Vector2(0, 0), new Vector2(floor.Settings.Width, floor.Settings.Height), levelDistance);
+            foreach (var point in points)
             {
-                int x = Random.Next(settings.Width);
-                int y = Random.Next(settings.Height);
-                var point = new Point(x, y);
-                if (!(tiles[point] is WaterTile))
+                if (!floor.IsPointPassable(point))
                 {
-                    return point;
+                    continue;
                 }
+
+                double roll = Random.NextDouble();
+
+                var returnWarp = new Warp(location, point);
+
+                floor.Tiles[point] = roll > 0.5
+                    ? GenerateWarp(ParentWorld.DungeonGenerator, LocationType.Dungeon, returnWarp, Sprites.LadderDown)
+                    : GenerateWarp(ParentWorld.CaveGenerator, LocationType.Cave, returnWarp, Sprites.LadderDown);
             }
-            throw new IndexOutOfRangeException("Cannot find an acceptable initial point");
+        }
+
+        private WarpTile GenerateWarp(LevelGenerator generator, LocationType locationType, Warp returnWarp, int spriteId)
+        {
+            var level = generator.Generate(returnWarp);
+            ParentWorld.Levels.Add(level);
+            return new WarpTile(new Warp(new Location(locationType, level.Location.Id, 0), level.Floors[0].EntrancePoint), spriteId);
         }
 
         private Tile TransformHeightToTile(int x, int y, double height)

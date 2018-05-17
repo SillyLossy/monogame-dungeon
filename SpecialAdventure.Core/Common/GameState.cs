@@ -12,82 +12,87 @@ namespace SpecialAdventure.Core.Common
 {
     public class GameState
     {
-        private List<Floor> floors = new List<Floor>();
-        
-        private int currentFloor = 0;
-        
         public Floor CurrentFloor
         {
             get
             {
-                switch (PlayerLocation.Type)
-                {
-                    case LocationType.Dungeon:
-                        return World.Dungeons[PlayerLocation.Id].Floors[PlayerLocation.Depth];
-                    case LocationType.Cave:
-                        return World.Caves[PlayerLocation.Id].Floors[PlayerLocation.Depth];
-                    case LocationType.Island:
-                        return World.Islands[PlayerLocation.Id].Floors[0];
-                    default:
-                        throw new ArgumentOutOfRangeException();
-                }
+                return World.Levels.Find(x => x.Location == PlayerLocation).Floors[PlayerLocation.Depth];
             }
         }
-        
-        public World.World World { get; } = new World.World(NewSeed);
 
-        public Location PlayerLocation = new Location(LocationType.Island, Guid.Empty, 0);
-        
-        public Character Player { get; set; }
+        private World.World World { get; } = new World.World(NewSeed);
+
+        public Location PlayerLocation { get; set; }
+
+        public Player Player { get; private set; }
 
         public TextGameLog Log { get; } = new TextGameLog();
 
         private SimplePriorityQueue<Character, int> CurrentQueue { get; set; } = new SimplePriorityQueue<Character, int>();
 
         private SimplePriorityQueue<Character, int> NextQueue { get; set; } = new SimplePriorityQueue<Character, int>();
-        
-        private Dictionary<Location, HashSet<Point>> seenPoints = new Dictionary<Location, HashSet<Point>>();
+
+        private Dictionary<Location, HashSet<Point>> SeenPoints { get; } = new Dictionary<Location, HashSet<Point>>();
 
         private static int NewSeed => (int)DateTime.UtcNow.Ticks;
 
-        public GameState NewGame()
+        public event EventHandler<Point> PlayerWarped; 
+
+        public void NewGame()
         {
-            var initialLocationId = World.GenerateIsland();
+            PlayerLocation = World.InitialLocation;
 
-            PlayerLocation = new Location(LocationType.Island, initialLocationId);
-
-            seenPoints[PlayerLocation] = new HashSet<Point>();
-
+            SeenPoints[PlayerLocation] = new HashSet<Point>();
+            var initialPoint = World.Levels.Find(x => x.Location == PlayerLocation).Floors[PlayerLocation.Depth].EntrancePoint;
             Player = new Player(
-                    "Player",
-                    new PrimaryAttributes
-                    {
-                        Agility = 5,
-                        Charisma = 5,
-                        Endurance = 5,
-                        Intelligence = 5,
-                        Luck = 5,
-                        Perception = 5,
-                        Strength = 5
-                    },
-                    World.Islands[initialLocationId].Floors[0].Settings.InitialPoint,
-                    Sprites.Player);
-            Player.SeenPoints = seenPoints[PlayerLocation];
-            return this;
+                "Player",
+                new PrimaryAttributes
+                {
+                    Agility = 5,
+                    Charisma = 5,
+                    Endurance = 5,
+                    Intelligence = 5,
+                    Luck = 5,
+                    Perception = 5,
+                    Strength = 5
+                },
+                Sprites.Player)
+            {
+                SeenPoints = SeenPoints[PlayerLocation]
+            };
+            WarpPlayer(new Warp(PlayerLocation, initialPoint));
         }
 
+        private ulong Ticks { get; set; }
+
+        private const ulong RegenRate = 100;
+
         // Advances the game state forward in time
-        public void Update(Action inputAction)
+        public bool Update(Func<ActionResult> inputAction)
         {
-            return;
-            if (WaitingForInput)
+            if (inputAction == null && !Player.HasNextStep)
             {
-                return;
+                return false;
             }
+
+            var characters = CurrentFloor.Entities.OfType<Character>().ToArray();
+
+            Ticks++;
+            if (Ticks % RegenRate == 0)
+            {
+                foreach (var character in characters)
+                {
+                    character.Regenerate();
+                }
+            }
+
+            Player.PendingAction = inputAction;
+            Player.Update(this);
+            NextQueue.Enqueue(Player, -Player.Sequence);
 
             if (CurrentQueue.Count == 0)
             {
-                foreach (var character in CurrentFloor.Characters.OrderByDescending(c => c.Sequence))
+                foreach (var character in CurrentFloor.Entities.OfType<Character>())
                 {
                     CurrentQueue.Enqueue(character, -character.Sequence);
                 }
@@ -96,13 +101,14 @@ namespace SpecialAdventure.Core.Common
             while (CurrentQueue.Count != 0)
             {
                 var current = CurrentQueue.Dequeue();
-                if (current == Player)
+
+                if (current is Player)
                 {
-                    WaitingForInput = true;
+                    return true;
                 }
 
-                var result = current.Update(this);
-                Log.LogActionResult(result);
+                var actionResult = current.Update(this);
+                Log.LogActionResult(actionResult);
                 NextQueue.Enqueue(current, -current.Sequence);
             }
 
@@ -110,127 +116,95 @@ namespace SpecialAdventure.Core.Common
             CurrentQueue = NextQueue;
             NextQueue = tempQueue;
             NextQueue.Clear();
+
+            return true;
         }
 
-        public bool WaitingForInput { get; set; }
-
-        public void MovePlayer(Direction direction)
+        public ActionResult MovePlayer(Direction direction)
         {
-            if (CurrentFloor.CanEntityMove(Player, direction))
-            {
-                Player.MoveTo(CurrentFloor, direction);
-            }
+            return Player.MoveTo(CurrentFloor, direction);
         }
 
-        public void MovePlayer(Point point)
+        public ActionResult MovePlayer(Point point)
         {
             if (point.X < CurrentFloor.Settings.Width && point.Y < CurrentFloor.Settings.Height && point.Y >= 0 && point.X >= 0)
             {
                 if (Player.SeenPoints.Contains(point))
                 {
-                    if (point == Player.Position)
+                    if (point == CurrentFloor.Entities.Reverse[Player])
                     {
-                        if (CurrentFloor.Tiles[point] == Tile.LadderDown)
+                        if (CurrentFloor.Tiles[point] is WarpTile warp)
                         {
-                            Descend();
-                        }
-                        else if (CurrentFloor.Tiles[point] == Tile.LadderUp)
-                        {
-                            Ascend();
+                            return WarpPlayer(warp.Warp);
                         }
                     }
                     else
                     {
-                        Player.MoveTo(CurrentFloor, point);
+                        return Player.MoveTo(CurrentFloor, point);
                     }
                 }
             }
+            return ActionResult.Empty;
         }
 
-        public void Ascend()
+        public ActionResult Ascend()
         {
-            if (CurrentFloor.Tiles[Player.Position] == Tile.LadderUp)
+            if (CurrentFloor.Tiles[CurrentFloor.Entities.Reverse[Player]] is WarpTile warp)
             {
-                if (currentFloor - 1 < 0)
+                if (warp.Warp.Location.Id == PlayerLocation.Id)
                 {
-                    // don't let him escape : )
-                    return;
+                    if (warp.Warp.Location.Depth < PlayerLocation.Depth)
+                    {
+                        return WarpPlayer(warp.Warp);
+                    }
                 }
+            }
+            return new SimpleResult("You can't go up here", LineType.Info);
+        }
 
-                ReplacePlayer(currentFloor - 1);
-                CurrentFloor.GenerateMonsters(isFirstEnter: false);
+        private ActionResult WarpPlayer(Warp warp)
+        {
+            CurrentFloor.Entities.TryRemove(Player);
+            PlayerLocation = warp.Location;
+            CurrentFloor.Entities.Add(warp.Point, Player);
+
+            HashSet<Point> seenPointsInWarpLocation;
+
+            if (SeenPoints.ContainsKey(PlayerLocation))
+            {
+                seenPointsInWarpLocation = SeenPoints[PlayerLocation];
             }
             else
             {
-                Log.PushLine(new LogLine("You can't go up here", LineType.Info));
+                seenPointsInWarpLocation = new HashSet<Point>();
+                SeenPoints[PlayerLocation] = seenPointsInWarpLocation;
             }
-        }
 
-        public void Descend()
-        {
-            if (CurrentFloor.Tiles[Player.Position] == Tile.LadderDown)
-            {
-                ReplacePlayer(currentFloor + 1);
-                CurrentFloor.GenerateMonsters(isFirstEnter: false);
-            }
-            else
-            {
-                Log.PushLine(new LogLine("You can't go down here", LineType.Info));
-            }
-        }
-
-        private void ReplacePlayer(int newFloor)
-        {
-            Character player = CurrentFloor.RemovePlayer(Player);
-            PlayerLocation = new Location(PlayerLocation.Type, PlayerLocation.Id, newFloor);
-            currentFloor = newFloor;
-            player.Position = CurrentFloor.RandomEntranceNeighbor;
-            player.SeenPoints = seenPoints[PlayerLocation];
-            CurrentFloor.PlacePlayer(player);
-            CurrentQueue.Clear();
-            NextQueue.Clear();
-        }
-
-        private Dictionary<Point, Tile> lastTiles;
-        private Rectangle lastRectangle;
-
-        public Dictionary<Point, Tile> GetTiles(Common.Rectangle rectangle)
-        {
-            var loc = PlayerLocation;
-
-            switch (loc.Type)
+            Player.SeenPoints = seenPointsInWarpLocation;
+            Player.VisiblePoints = Player.GetVisiblePoints(CurrentFloor, PlayerLocation);
+            PlayerWarped?.Invoke(this, CurrentFloor.Entities.Reverse[Player]);
+            switch (warp.Location.Type)
             {
                 case LocationType.Island:
-                    if (rectangle == lastRectangle)
-                    {
-                        return lastTiles;
-                    }
-                    var tiles = new Dictionary<Point, Tile>();
-                    int maxW = World.Islands[loc.Id].Floors[0].Settings.Width;
-                    int maxH = World.Islands[loc.Id].Floors[0].Settings.Height;
-                    var islandTerrain = World.Islands[loc.Id].Floors[0].Tiles;
-                    for (int i = rectangle.X; i < rectangle.W + rectangle.X; i++)
-                    {
-                        for (int j = rectangle.Y; j < rectangle.H + rectangle.Y; j++)
-                        {
-                            if (i < 0 || j < 0 || i >= maxW || j >= maxH)
-                            {
-                                continue;
-                            }
-                            var point = new Point(i, j);
-                            tiles[point] = islandTerrain[point];
-                        }
-                    }
-                    lastRectangle = rectangle;
-                    lastTiles = tiles;
-                    return tiles;
-                case LocationType.Dungeon:
-                    return World.Dungeons[loc.Id].Floors[loc.Depth].Tiles;
-                case LocationType.Cave:
-                    return World.Caves[loc.Id].Floors[loc.Depth].Tiles;
+                    return new SimpleResult("You go to the island", LineType.Info);
                 default:
-                    throw new ArgumentOutOfRangeException();
+                    return new SimpleResult(string.Format("You go to the level {0}", warp.Location.Depth + 1));
             }
+        }
+
+        public ActionResult Descend()
+        {
+            if (CurrentFloor.Tiles[CurrentFloor.Entities.Reverse[Player]] is WarpTile warp)
+            {
+                if (warp.Warp.Location.Id == PlayerLocation.Id)
+                {
+                    if (warp.Warp.Location.Depth > PlayerLocation.Depth)
+                    {
+                        return WarpPlayer(warp.Warp);
+                    }
+                }
+            }
+            return new SimpleResult("You can't go down here", LineType.Info);
         }
     }
 }

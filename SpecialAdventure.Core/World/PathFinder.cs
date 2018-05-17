@@ -26,6 +26,7 @@ namespace SpecialAdventure.Core.World
 
         public static LinkedList<Point> AStar(Floor floor, Point start, Point goal, bool ignoreEntities = false)
         {
+            const int pathLengthLimit = 500;
             var frontier = new SimplePriorityQueue<Point, double>();
             var cameFrom = new Dictionary<Point, Point>();
             var costSoFar = new Dictionary<Point, double>();
@@ -34,7 +35,7 @@ namespace SpecialAdventure.Core.World
             cameFrom[start] = start;
             costSoFar[start] = 0;
 
-            while (frontier.Count != 0)
+            while (frontier.Count != 0 && frontier.Count < pathLengthLimit)
             {
                 Point current = frontier.Dequeue();
 

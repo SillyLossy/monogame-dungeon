@@ -1,5 +1,7 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using SpecialAdventure.Core.Common;
+using SpecialAdventure.Core.Entities.Common;
 using SpecialAdventure.Core.World.Levels;
 using SpecialAdventure.Core.World.Tiles;
 
@@ -7,22 +9,24 @@ namespace SpecialAdventure.Core.World.Generators
 {
     public class CaveGenerator : LevelGenerator
     {
-        public CaveGenerator(int seed, int minDepth, int maxDepth) : base(seed, minDepth, maxDepth)
+        public CaveGenerator(World world, int seed, int minDepth, int maxDepth) : base(world, seed, minDepth, maxDepth)
         {
 
         }
 
-        public override AbstractLevel Generate()
+        public override Level Generate(Warp returnWarp)
         {
             int depth = DepthRange.Value;
             var floors = new List<Floor>();
+            var id = Guid.NewGuid();
+            var location = new Location(LocationType.Cave, id, 0);
 
             for (int i = 0; i < depth; i++)
             {
                 floors.Add(GenerateFloor(CaveFloorSettings.GetSettings(i, Random)));
             }
 
-            return new Cave(floors.AsReadOnly());
+            return new Level(location, floors.AsReadOnly());
         }
 
         private Floor GenerateFloor(CaveFloorSettings settings)
@@ -54,7 +58,7 @@ namespace SpecialAdventure.Core.World.Generators
             }
 
             //And we're done!
-            return new Floor(map, settings);
+            return new Floor(map, new Map<Point, Entity>(), settings);
         }
 
         private void InitializeMap(Dictionary<Point, Tile> map, CaveFloorSettings settings)

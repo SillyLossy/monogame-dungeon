@@ -1,8 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿using System.Collections.Generic;
 using SpecialAdventure.Core.Common;
 using SpecialAdventure.Core.Entities.Characters;
+using SpecialAdventure.Core.Entities.Common;
 using SpecialAdventure.Core.World.Generators;
 using SpecialAdventure.Core.World.Tiles;
 
@@ -11,7 +10,7 @@ namespace SpecialAdventure.Core.World
     public class Floor
     {
         public Dictionary<Point, Tile> Tiles { get; }
-        
+
         public Point RandomFreePoint
         {
             get
@@ -23,7 +22,7 @@ namespace SpecialAdventure.Core.World
                     int y = RandomHelper.Random.Next(Settings.Height);
                     var randomPoint = new Point(x, y);
 
-                    if (!IsTransparent(randomPoint))
+                    if (!IsPointPassable(randomPoint))
                     {
                         continue;
                     }
@@ -32,51 +31,62 @@ namespace SpecialAdventure.Core.World
                     break;
                 }
 
-                return point ?? RandomNeighborOfTile(Tile.Floor);
+                return point;
             }
         }
 
-        public IEnumerable<Character> Characters => characters;
+        public Map<Point, Entity> Entities { get; }
+
         public AbstractFloorSettings Settings { get; }
-        public List<Door> Doors { get; set; }
 
-        public Point RandomEntranceNeighbor => RandomNeighborOfTile(Tile.LadderUp);
-        public Point RandomExitNeighbor => RandomNeighborOfTile(Tile.LadderDown);
+        public Point EntrancePoint { get; }
 
-        private Point RandomNeighborOfTile(Tile tile)
+        public Point ExitPoint { get; }
+        
+        public bool IsTransparent(Point point)
         {
-            Point entrancePoint = null;
-            for (int x = 0; x < Settings.Width; x++)
+            bool tileTransparent = Tiles[point].IsTransparent;
+
+            if (Entities.Forward.Contains(point))
             {
-                for (int y = 0; y < Settings.Height; y++)
-                {
-                    var point = new Point(x, y);
-                    if (Tiles[point] == tile)
-                    {
-                        entrancePoint = point;
-                    }
-                }
+                return tileTransparent && Entities.Forward[point].IsTransparent;
             }
 
-            if (entrancePoint == null)
-            {
-                throw new ArgumentOutOfRangeException(nameof(tile));
-            }
-
-            var entranceNeighbors = GetNeighbors(entrancePoint).ToArray();
-            return entranceNeighbors[RandomHelper.Random.Next(entranceNeighbors.Length)];
+            return tileTransparent;
         }
         
-        private readonly List<Character> characters;
-
-
-        public Floor(Dictionary<Point, Tile> tiles, AbstractFloorSettings settings)
+        public Floor(Dictionary<Point, Tile> tiles, Map<Point, Entity> entities, AbstractFloorSettings settings)
         {
             Tiles = tiles;
             Settings = settings;
-            characters = new List<Character>();
+            Entities = entities;
+            var (entrance, exit) = GetWarpPoints();
+            ExitPoint = exit;
+            EntrancePoint = entrance;
         }
-        
+
+        private (Point Entrance, Point Exit) GetWarpPoints()
+        {
+            Point exit = null;
+            Point entrance = null;
+            do
+            {
+                var entranceVariant = RandomFreePoint;
+                var exitVariant = RandomFreePoint;
+
+                if (entranceVariant == exitVariant || PathFinder.AStar(this, entranceVariant, exitVariant, ignoreEntities: true) == null)
+                {
+                    continue;
+                }
+
+                exit = exitVariant;
+                entrance = entranceVariant;
+
+            } while (exit == null || entrance == null);
+
+            return (Entrance: entrance, Exit: exit);
+        }
+
         public IEnumerable<Point> GetNeighbors(Point current, bool ignoreEntities = false)
         {
             // -1 0 1
@@ -92,13 +102,18 @@ namespace SpecialAdventure.Core.World
 
                     int x = current.X + i, y = current.Y + j;
                     var point = new Point(x, y);
-                    if (IsPassableTile(Tiles[point]))
+                    if (Tiles[point].IsPassable)
                     {
                         if (ignoreEntities == false)
                         {
-                            var closedDoor = Doors.FirstOrDefault(d => !d.IsOpen && d.Position == point);
-                            var entity = Characters.FirstOrDefault(e => e.Position == point);
-                            if (closedDoor == null && entity == null)
+                            if (Entities.Forward.Contains(point))
+                            {
+                                if (Entities.Forward[point].IsPassable)
+                                {
+                                    yield return point;
+                                }
+                            }
+                            else
                             {
                                 yield return point;
                             }
@@ -112,22 +127,6 @@ namespace SpecialAdventure.Core.World
             }
         }
 
-        private static bool IsPassableTile(Tile tile)
-        {
-            return tile != Tile.Stone && tile != Tile.Wall;
-        }
-
-        public void PlacePlayer(Character player)
-        {
-            characters.Add(player);
-        }
-
-        public Character RemovePlayer(Character player)
-        {
-            characters.Remove(player);
-            return player;
-        }
-
         public void GenerateMonsters(bool isFirstEnter)
         {
             int min = isFirstEnter ? Settings.Monsters.Min : (Settings.Monsters.Min / 8);
@@ -136,22 +135,13 @@ namespace SpecialAdventure.Core.World
             int count = RandomHelper.Random.Next(min, max);
             for (int i = 0; i < count; i++)
             {
-                characters.Add(MonsterFactory.GetRandom(RandomFreePoint, Settings.Depth));
+                Entities.Add(RandomFreePoint, MonsterFactory.GetRandom(RandomFreePoint, Settings.Depth));
             }
         }
-
-        public bool CanEntityMove(Character entity, Direction direction)
-        {
-            var newPos = Character.NewPosition(direction, entity.Position);
-            return Tiles[newPos] == Tile.Floor;
-        }
         
-        public bool IsTransparent(Point point)
+        public bool IsPointPassable(Point point)
         {
-            return !(Doors.Find(d => !d.IsOpen && d.Position.X == point.X && d.Position.Y == point.Y) != null ||
-                     Tiles[point] == Tile.Stone ||
-                     Tiles[point] == Tile.Wall ||
-                     characters.Find(c => c.Position.X == point.X && c.Position.Y == point.Y) != null);
+            return Tiles[point].IsPassable && !Entities.Forward.Contains(point);
         }
     }
 }

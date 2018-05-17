@@ -34,8 +34,9 @@
     <Reference Include="LibNoise, Version=0.2.0.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\LibNoise.0.2\lib\NET45\LibNoise.dll</HintPath>
     </Reference>
-    <Reference Include="Newtonsoft.Json, Version=11.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
-      <HintPath>..\packages\Newtonsoft.Json.11.0.2\lib\net45\Newtonsoft.Json.dll</HintPath>
+    <Reference Include="Newtonsoft.Json, Version=6.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\packages\Newtonsoft.Json.9.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
     <Reference Include="Priority Queue, Version=4.1.1.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\OptimizedPriorityQueue.4.1.1\lib\net45\Priority Queue.dll</HintPath>
@@ -45,6 +46,9 @@
     <Reference Include="System.Numerics" />
     <Reference Include="System.Numerics.Vectors, Version=4.1.3.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
       <HintPath>..\packages\System.Numerics.Vectors.4.4.0\lib\portable-net45+win8+wp8+wpa81\System.Numerics.Vectors.dll</HintPath>
+    </Reference>
+    <Reference Include="System.ValueTuple, Version=4.0.1.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.ValueTuple.4.3.0\lib\netstandard1.0\System.ValueTuple.dll</HintPath>
     </Reference>
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
@@ -79,6 +83,7 @@
     <Compile Include="Entities\Common\Entity.cs" />
     <Compile Include="Entities\Common\GameObject.cs" />
     <Compile Include="Entities\Common\Rarity.cs" />
+    <Compile Include="Entities\Common\Tree.cs" />
     <Compile Include="Entities\Items\Armor.cs" />
     <Compile Include="Entities\Items\EquipSlot.cs" />
     <Compile Include="Entities\Items\Inventory.cs" />
@@ -97,8 +102,9 @@
     <Compile Include="Log\LineType.cs" />
     <Compile Include="Log\LogLine.cs" />
     <Compile Include="Log\TextGameLog.cs" />
+    <Compile Include="Common\Map.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="World\Door.cs" />
+    <Compile Include="Entities\Common\Door.cs" />
     <Compile Include="World\Floor.cs" />
     <Compile Include="World\Generators\AbstractFloorSettings.cs" />
     <Compile Include="World\Generators\CaveFloorSettings.cs" />
@@ -109,10 +115,7 @@
     <Compile Include="World\Generators\IslandGenerator.cs" />
     <Compile Include="World\Generators\LevelGenerator.cs" />
     <Compile Include="World\Join.cs" />
-    <Compile Include="World\Levels\AbstractLevel.cs" />
-    <Compile Include="World\Levels\Cave.cs" />
-    <Compile Include="World\Levels\Dungeon.cs" />
-    <Compile Include="World\Levels\Island.cs" />
+    <Compile Include="World\Levels\Level.cs" />
     <Compile Include="World\Location.cs" />
     <Compile Include="World\LocationType.cs" />
     <Compile Include="World\PathFinder.cs" />
@@ -121,10 +124,14 @@
     <Compile Include="World\Tiles\WallTile.cs" />
     <Compile Include="World\Tiles\WarpTile.cs" />
     <Compile Include="World\Tiles\WaterTile.cs" />
+    <Compile Include="World\Warp.cs" />
     <Compile Include="World\World.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="MoreCollections\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

@@ -60,7 +60,7 @@ namespace SpecialAdventure.Core.Entities.Characters
         }.AsReadOnly();
 
 
-        public Character Construct(Point position)
+        public Character Construct()
         {
             return new Monster(
                 Name,
@@ -74,7 +74,6 @@ namespace SpecialAdventure.Core.Entities.Characters
                     Agility = Agility.Value,
                     Luck = Luck.Value
                 },
-                position,
                 SpriteId)
             {
                 Experience = Character.GetExperienceCap(Level.Value) + 1,
@@ -89,7 +88,7 @@ namespace SpecialAdventure.Core.Entities.Characters
                 ? acceptablePrefabs[RandomHelper.Random.Next(0, acceptablePrefabs.Count)]
                 : prefabs[RandomHelper.Random.Next(0, prefabs.Count)];
 
-            return prefab.Construct(position);
+            return prefab.Construct();
         }
     }
 }

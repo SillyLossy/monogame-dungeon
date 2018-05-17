@@ -5,6 +5,7 @@ using SpecialAdventure.Core.Common;
 using SpecialAdventure.Core.Entities.Common;
 using SpecialAdventure.Core.Entities.Items;
 using SpecialAdventure.Core.FOV;
+using SpecialAdventure.Core.Log;
 using SpecialAdventure.Core.World;
 
 namespace SpecialAdventure.Core.Entities.Characters
@@ -36,7 +37,7 @@ namespace SpecialAdventure.Core.Entities.Characters
             190_000,
             210_000
         };
-        
+
         public int Level
         {
             get
@@ -67,27 +68,31 @@ namespace SpecialAdventure.Core.Entities.Characters
         public LinkedList<Point> Path { get; protected set; }
 
         public PrimaryAttributes PrimaryAttributes { get; }
-        
+
         public int MaxHitPoints => 15 + PrimaryAttributes.Strength +
                                    2 * PrimaryAttributes.Endurance + Level * (PrimaryAttributes.Endurance / 2) + 2;
 
         public int HitPoints { get; set; }
-        
+
         public int MaxCarryWeight => 25 + PrimaryAttributes.Strength * 25;
-        
+
         public int SkillRate => 5 + PrimaryAttributes.Intelligence * 2;
-        
+
         private double CriticalChance => 0.01 * PrimaryAttributes.Luck;
-        
+
         public int Sequence => 2 * PrimaryAttributes.Perception;
-        
+
         public int ActionPoints => (int)Math.Floor((PrimaryAttributes.Agility / 2d) + 5);
-        
+
         public int MeleeDamage => Math.Max(1, PrimaryAttributes.Strength - 5);
+
+        public int HealingRate => Math.Max(PrimaryAttributes.Endurance / 3, 1);
 
         public IReadOnlyDictionary<Skill, int> Skills { get; }
 
         public string Name { get; }
+
+        public HashSet<Point> VisiblePoints { get; set; } = new HashSet<Point>();
 
         public int ArmorClass
         {
@@ -109,7 +114,7 @@ namespace SpecialAdventure.Core.Entities.Characters
 
         public Inventory Inventory { get; } = new Inventory();
 
-        protected Character(string name, PrimaryAttributes primaryAttributes, Point initialPosition, int spriteId) : base(initialPosition, spriteId)
+        protected Character(string name, PrimaryAttributes primaryAttributes, int spriteId) : base(spriteId)
         {
             Name = name;
             PrimaryAttributes = primaryAttributes;
@@ -132,23 +137,44 @@ namespace SpecialAdventure.Core.Entities.Characters
                 [Skill.Spear] = 30 + (attributes.Agility * 2)
             };
         }
-        
+
         public HashSet<Point> SeenPoints { get; set; } = new HashSet<Point>();
-        
-        public int SightRadius => (int)Math.Floor(2 + PrimaryAttributes.Perception * 2d);
-        
+
+        private int GetSightRadius(LocationType type)
+        {
+            double perceptionMultiplier;
+            double baseRadius = 2d;
+            switch (type)
+            {
+                case LocationType.Island:
+                    perceptionMultiplier = 4;
+                    break;
+                case LocationType.Cave:
+                    perceptionMultiplier = 2;
+                    break;
+                case LocationType.Dungeon:
+                    perceptionMultiplier = 3;
+                    break;
+                default:
+                    perceptionMultiplier = 1;
+                    break;
+            }
+
+            return (int)Math.Floor(baseRadius + (PrimaryAttributes.Perception * perceptionMultiplier));
+        }
+
         public Armor EquippedArmor => Inventory.Equipped.ContainsKey(EquipSlot.Armor)
             ? Inventory.Equipped[EquipSlot.Armor] as Armor
             : Armor.NoArmor;
-        
+
         public Weapon EquippedWeapon => Inventory.Equipped.ContainsKey(EquipSlot.Weapon)
             ? Inventory.Equipped[EquipSlot.Armor] as Weapon
             : Weapon.UnarmedWeapon(MeleeDamage);
 
-        public HashSet<Point> GetVisiblePoints(Floor parent)
+        public HashSet<Point> GetVisiblePoints(Floor parent, Location location)
         {
             var algorithm = new PermissiveFov(parent.Settings.Width, parent.Settings.Height, parent.IsTransparent);
-            var points = algorithm.Compute(Position.X, Position.Y, SightRadius);
+            var points = algorithm.Compute(parent.Entities.Reverse[this].X, parent.Entities.Reverse[this].Y, GetSightRadius(location.Type));
 
             SeenPoints.UnionWith(points);
             return points;
@@ -168,7 +194,7 @@ namespace SpecialAdventure.Core.Entities.Characters
                     continue;
                 }
 
-                var path = PathFinder.AStar(parent, Position, neighbor);
+                var path = PathFinder.AStar(parent, parent.Entities.Reverse[this], neighbor);
 
                 if (path == null)
                 {
@@ -185,44 +211,57 @@ namespace SpecialAdventure.Core.Entities.Characters
             return shortestNeighborPath;
         }
 
-        public void MoveTo(Floor parent, Point target)
+        public ActionResult MoveTo(Floor parent, Point target)
         {
-            if (Position == target) return;
+            var myPosition = parent.Entities.Reverse[this];
+            if (myPosition == target)
+            {
+                return ActionResult.Empty;
+            }
 
             LinkedList<Point> path = null;
-            var door = parent.Doors.FirstOrDefault(d => !d.IsOpen && d.Position == target);
-            var character = parent.Characters.FirstOrDefault(d => d.Position == target);
-            if (door != null)
-            {
-                // if door is neighbor, just open it
-                if (parent.GetNeighbors(door.Position, true).Any(neighbor => neighbor == Position))
-                {
-                    door.Open();
-                    return;
-                }
 
-                path = FindPathToEntity(parent, door.Position);
-            }
-            else if (character != null)
+            if (parent.Entities.Forward.Contains(target))
             {
-                if (parent.GetNeighbors(character.Position, true).Any(neighbor => neighbor == Position))
+                var entity = parent.Entities.Forward[target];
+
+                if (entity is Door door)
                 {
-                    Attack(character);
-                    return;
+                    // if door is neighbor, just open it
+                    if (parent.GetNeighbors(target, true).Any(neighbor => neighbor == myPosition))
+                    {
+                        door.Open();
+                        return this is Player ? new SimpleResult("You open the door", LineType.General) : ActionResult.Empty;
+                    }
+
+                    path = FindPathToEntity(parent, target);
+                }
+                else if (entity is Character character)
+                {
+                    if (parent.GetNeighbors(target, true).Any(neighbor => neighbor == myPosition))
+                    {
+                        return Attack(character);
+                    }
                 }
             }
             else
             {
-                path = PathFinder.AStar(parent, Position, target);
+                path = PathFinder.AStar(parent, myPosition, target);
             }
-            
+
             if (path != null)
             {
                 Path = path;
             }
+
+            return ActionResult.Empty;
         }
 
-        public abstract ActionResult Update(GameState state);
+        public virtual ActionResult Update(GameState state)
+        {
+            VisiblePoints = GetVisiblePoints(state.CurrentFloor, state.PlayerLocation);
+            return ActionResult.Empty;
+        }
 
         protected ActionResult Step(Floor parent)
         {
@@ -232,25 +271,39 @@ namespace SpecialAdventure.Core.Entities.Characters
                 Path.RemoveFirst();
                 CheckForDoor(parent, newPos);
 
-                Position = newPos;
+                parent.Entities.TryRemove(this);
+                parent.Entities.Add(newPos, this);
             }
             return ActionResult.Empty;
         }
 
-        public void MoveTo(Floor parent, Direction direction)
+        public ActionResult MoveTo(Floor parent, Direction direction)
         {
-            var oldPos = Position;
-            var newPos = NewPosition(direction, oldPos);
+            var myPosition = parent.Entities.Reverse[this];
+            var newPos = NewPosition(direction, myPosition);
 
-            CheckForDoor(parent, newPos);
+            if (parent.Tiles[newPos].IsPassable)
+            {
+                return MoveTo(parent, newPos);
+            }
 
-            Position = newPos;
+            return ActionResult.Empty;
         }
 
-        protected static void CheckForDoor(Floor parent, Point newPos)
+        private static void CheckForDoor(Floor parent, Point newPos)
         {
-            var closedDoor = parent.Doors.FirstOrDefault(d => !d.IsOpen && d.Position == newPos);
-            closedDoor?.Open();
+            foreach (var pair in parent.Entities)
+            {
+                if (!(pair.Value is Door door))
+                {
+                    continue;
+                }
+
+                if (pair.Key == newPos)
+                {
+                    door.Open();
+                }
+            }
         }
 
         public static Point NewPosition(Direction direction, Point oldPos)
@@ -280,7 +333,7 @@ namespace SpecialAdventure.Core.Entities.Characters
             }
         }
 
-        protected virtual AttackResult Attack(Character target)
+        protected AttackResult Attack(Character target)
         {
             Weapon weapon = EquippedWeapon;
 
@@ -319,7 +372,7 @@ namespace SpecialAdventure.Core.Entities.Characters
 
                 target.RemoveHitPoints(finalDamage);
 
-                blowsList.Add(new AttackResult.Blow {Damage = finalDamage, IsCriticalHit = isCriticalHit});
+                blowsList.Add(new AttackResult.Blow { Damage = finalDamage, IsCriticalHit = isCriticalHit });
 
                 if (target.IsDead)
                 {
@@ -335,6 +388,15 @@ namespace SpecialAdventure.Core.Entities.Characters
             HitPoints -= Math.Max(decrement, 0);
         }
 
+        public void AddHitPoints(int increment)
+        {
+            HitPoints += Math.Max(increment, 0);
+            if (HitPoints > MaxHitPoints)
+            {
+                HitPoints = MaxHitPoints;
+            }
+        }
+
         public void AddExperience(int increment)
         {
             int prevLevel = Level;
@@ -348,7 +410,7 @@ namespace SpecialAdventure.Core.Entities.Characters
         public int ExperienceReward { get; set; } = 0;
 
         public bool IsDead => HitPoints <= 0;
-        
+
         private static double AdjustHitChance(int rawChance)
         {
             int chance = rawChance;
@@ -364,6 +426,11 @@ namespace SpecialAdventure.Core.Entities.Characters
             }
 
             return chance / 100d;
+        }
+
+        public void Regenerate()
+        {
+            AddHitPoints(HealingRate);
         }
     }
 }

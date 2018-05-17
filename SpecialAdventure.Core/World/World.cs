@@ -7,56 +7,27 @@ namespace SpecialAdventure.Core.World
 {
     public class World
     {
-        private readonly Random random;
+        public readonly LevelGenerator IslandGenerator;
 
-        private readonly LevelGenerator islandGenerator;
+        public readonly LevelGenerator CaveGenerator;
 
-        private readonly LevelGenerator caveGenerator;
+        public readonly LevelGenerator DungeonGenerator;
 
-        private readonly LevelGenerator dungeonGenerator;
+        public List<Level> Levels { get; }
 
-        public Dictionary<Guid, AbstractLevel> Dungeons { get; }
-
-        public Dictionary<Guid, AbstractLevel> Caves { get; }
-
-        public Dictionary<Guid, AbstractLevel> Islands { get; }
-
-        public Guid GenerateIsland()
-        {
-            var id = Guid.NewGuid();
-            var island = islandGenerator.Generate();
-            Islands[id] = island;
-            return id;
-        }
-
-        public Guid GenerateCave()
-        {
-            var id = Guid.NewGuid();
-            var cave = caveGenerator.Generate();
-            Caves[id] = cave;
-            return id;
-        }
-
-        public Guid GenerateDungeon()
-        {
-            var id = Guid.NewGuid();
-            var dungeon = dungeonGenerator.Generate();
-            Dungeons[id] = dungeon;
-            return id;
-        }
-
+        public Location InitialLocation { get; } 
+        
         public World(int seed)
         {
-            random = new Random(seed);
+            var random = new Random(seed);
 
-            islandGenerator = new IslandGenerator(random.Next());
-            caveGenerator = new CaveGenerator(random.Next(), 1, 15);
-            dungeonGenerator = new DungeonGenerator(random.Next(), 10, 15);
-
-            Islands = new Dictionary<Guid, AbstractLevel>();
-            Caves = new Dictionary<Guid, AbstractLevel>();
-            Dungeons = new Dictionary<Guid, AbstractLevel>();
+            IslandGenerator = new IslandGenerator(this, random.Next());
+            CaveGenerator = new CaveGenerator(this, random.Next(), 1, 15);
+            DungeonGenerator = new DungeonGenerator(this, random.Next(), 10, 15);
+            Levels = new List<Level>();
+            var firstIsland = IslandGenerator.Generate(null);
+            InitialLocation = firstIsland.Location;
+            Levels.Add(firstIsland);
         }
-        
     }
 }

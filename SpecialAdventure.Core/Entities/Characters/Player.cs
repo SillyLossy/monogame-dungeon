@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using SpecialAdventure.Core.Common;
 
 namespace SpecialAdventure.Core.Entities.Characters
@@ -7,12 +8,13 @@ namespace SpecialAdventure.Core.Entities.Characters
     {
         public Func<ActionResult> PendingAction { get; set; }
 
-        public Player(string name, PrimaryAttributes primaryAttributes, Point initialPosition, int spriteId) : base(name, primaryAttributes, initialPosition, spriteId)
+        public Player(string name, PrimaryAttributes primaryAttributes, int spriteId) : base(name, primaryAttributes, spriteId)
         {
         }
 
         public override ActionResult Update(GameState state)
         {
+            base.Update(state);
             var result = PendingAction?.Invoke();
             if (result == null)
             {
@@ -20,10 +22,18 @@ namespace SpecialAdventure.Core.Entities.Characters
             }
             return result;
         }
+        
+        public override bool IsPassable => false;
+        public override bool IsTransparent => false;
 
-        protected override AttackResult Attack(Character target)
+        public HashSet<Point> PreviouslySeen
         {
-            return base.Attack(target);
+            get
+            {
+                var set = new HashSet<Point>(SeenPoints);
+                set.ExceptWith(VisiblePoints);
+                return set;
+            }
         }
     }
 }

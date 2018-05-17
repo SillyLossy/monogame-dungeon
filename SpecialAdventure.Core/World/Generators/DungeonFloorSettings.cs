@@ -18,6 +18,7 @@ namespace SpecialAdventure.Core.World.Generators
         {
             bool roomsOverlap = random.NextDouble() > 0.5;
 
+
             const int minSize = 35;
             const int maxSize = 60;
             const int sizeIncrement = 5;
@@ -29,6 +30,9 @@ namespace SpecialAdventure.Core.World.Generators
             const int minMonsters = 3;
             const int maxMonsters = 5;
             const int monstersIncrement = 4;
+
+            const int minRoomSize = maxSize / 10;
+            const int maxRoomSize = maxSize / 4;
 
             RandomSpursRange.Random = random;
             RandomConnectionsRange.Random = random;
@@ -59,12 +63,17 @@ namespace SpecialAdventure.Core.World.Generators
                 Random = random
             };
 
-
+            var roomSizeRange = new IntRange(minRoomSize, maxRoomSize)
+            {
+                Random = random
+            };
+            
             return new DungeonFloorSettings
             {
                 Width = widthRange.Value,
                 Height = heightRange.Value,
                 MaxRooms = maxRoomsRange.Value,
+                RoomSize = roomSizeRange,
                 RandomSpurs = RandomSpursRange.Value,
                 RandomConnections = RandomConnectionsRange.Value,
                 Depth = depth,

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using SpecialAdventure.Core.Common;
+using SpecialAdventure.Core.Entities.Common;
 using SpecialAdventure.Core.World.Levels;
 using SpecialAdventure.Core.World.Tiles;
 
@@ -15,27 +16,55 @@ namespace SpecialAdventure.Core.World.Generators
     ///</summary>
     public class DungeonGenerator : LevelGenerator
     {
-        public DungeonGenerator(int seed, int minDepth, int maxDepth) : base(seed, minDepth, maxDepth)
+        public DungeonGenerator(World world, int seed, int minDepth, int maxDepth) : base(world, seed, minDepth, maxDepth)
         {
         }
 
-        public override AbstractLevel Generate()
+        public override Level Generate(Warp returnWarp)
         {
             int depth = DepthRange.Value;
             var floors = new List<Floor>();
+            var id = Guid.NewGuid();
+            var location = new Location(LocationType.Dungeon, id, 0);
 
             for (int i = 0; i < depth; i++)
             {
-                floors.Add(GenerateFloor(DungeonFloorSettings.GetSettings(i, Random)));
+                var floor = GenerateFloor(DungeonFloorSettings.GetSettings(i, Random));
+
+                floor.GenerateMonsters(isFirstEnter: true);
+                floors.Add(floor);
             }
 
-            return new Cave(floors.AsReadOnly());
+            PlaceFloorWarps(floors, id, returnWarp);
+
+            return new Level(location, floors.AsReadOnly());
+        }
+
+        private static void PlaceFloorWarps(IReadOnlyList<Floor> floors, Guid id, Warp returnWarp)
+        {
+            for (int i = 0; i < floors.Count; i++)
+            {
+                var floor = floors[i];
+                if (i == 0)
+                {
+                    floor.Tiles[floor.EntrancePoint] = new WarpTile(returnWarp, Sprites.LadderUp);
+                    floor.Tiles[floor.ExitPoint] = new WarpTile(new Warp(new Location(LocationType.Dungeon, id, i + 1), floors[i + 1].EntrancePoint), Sprites.LadderDown);
+                }
+                else if (i == floors.Count - 1)
+                {
+                    floor.Tiles[floor.EntrancePoint] = new WarpTile(new Warp(new Location(LocationType.Dungeon, id, i - 1), floors[i - 1].ExitPoint), Sprites.LadderUp);
+                }
+                else
+                {
+                    floor.Tiles[floor.EntrancePoint] = new WarpTile(new Warp(new Location(LocationType.Dungeon, id, i - 1), floors[i - 1].ExitPoint), Sprites.LadderUp);
+                    floor.Tiles[floor.ExitPoint] = new WarpTile(new Warp(new Location(LocationType.Dungeon, id, i + 1), floors[i + 1].EntrancePoint), Sprites.LadderDown);
+                }
+            }
         }
 
         public Floor GenerateFloor(DungeonFloorSettings settings)
         {
             var level = new Dictionary<Point, Tile>();
-            var floor = new Floor(level, settings);
 
             // build an empty dungeon, blank the room and corridor lists
             for (int i = 0; i < settings.Width; i++)
@@ -137,6 +166,8 @@ namespace SpecialAdventure.Core.World.Generators
                 }
             }
 
+            var entities = new Map<Point, Entity>();
+
             // paint the walls
             for (int col = 1; col < settings.Width - 1; col++)
             {
@@ -187,8 +218,6 @@ namespace SpecialAdventure.Core.World.Generators
                 }
             }
 
-            var doors = new Dictionary<Point, Door>();
-
             // paint doors
             foreach (var room in roomList)
             {
@@ -197,7 +226,7 @@ namespace SpecialAdventure.Core.World.Generators
                 {
                     int top1y = room.Y - 1;
                     var position = new Point(room.X + x, top1y);
-                    if (top1y <= 0 || doors.ContainsKey(position))
+                    if (top1y <= 0 || entities.Forward.Contains(position))
                     {
                         break;
                     }
@@ -207,7 +236,7 @@ namespace SpecialAdventure.Core.World.Generators
                     {
                         if (Random.NextDouble() > 0.25)
                         {
-                            doors.Add(position, new Door(position));
+                            entities.Add(position, new Door());
                         }
                     }
                 }
@@ -216,7 +245,7 @@ namespace SpecialAdventure.Core.World.Generators
                 {
                     int bottom1y = room.Y + room.H;
                     var position = new Point(room.X + x, bottom1y);
-                    if (bottom1y >= settings.Height || doors.ContainsKey(position))
+                    if (bottom1y >= settings.Height || entities.Forward.Contains(position))
                     {
                         break;
                     }
@@ -226,7 +255,7 @@ namespace SpecialAdventure.Core.World.Generators
                     {
                         if (Random.NextDouble() > 0.25)
                         {
-                            doors.Add(position, new Door(position));
+                            entities.Add(position, new Door());
                         }
                     }
                 }
@@ -235,7 +264,7 @@ namespace SpecialAdventure.Core.World.Generators
                 {
                     int left1x = room.X - 1;
                     var position = new Point(left1x, room.Y + y);
-                    if (left1x <= 0 || doors.ContainsKey(position))
+                    if (left1x <= 0 || entities.Forward.Contains(position))
                     {
                         break;
                     }
@@ -246,7 +275,7 @@ namespace SpecialAdventure.Core.World.Generators
                     {
                         if (Random.NextDouble() > 0.25)
                         {
-                            doors.Add(position, new Door(position));
+                            entities.Add(position, new Door());
                         }
                     }
                 }
@@ -255,7 +284,7 @@ namespace SpecialAdventure.Core.World.Generators
                 {
                     int right1x = room.X + room.W;
                     var position = new Point(right1x, room.Y + y);
-                    if (right1x <= 0 || doors.ContainsKey(position))
+                    if (right1x <= 0 || entities.Forward.Contains(position))
                     {
                         break;
                     }
@@ -266,48 +295,16 @@ namespace SpecialAdventure.Core.World.Generators
                     {
                         if (Random.NextDouble() > 0.25)
                         {
-                            doors.Add(position, new Door(position));
+                            entities.Add(position, new Door());
                         }
                     }
                 }
             }
 
-            floor.Doors = doors.Values.ToList();
-
-            Point exit = null;
-            Point entrance = null;
-            do
-            {
-                try
-                {
-                    var entranceVariant = floor.RandomFreePoint;
-                    var exitVariant = floor.RandomFreePoint;
-
-                    if (entranceVariant == exitVariant ||
-                        PathFinder.AStar(floor, entranceVariant, exitVariant, ignoreEntities: true) == null ||
-                        !floor.GetNeighbors(entranceVariant).Any() ||
-                        floor.Doors.Find(d => d.Position == exitVariant || d.Position == entranceVariant) != null)
-                    {
-                        continue;
-                    }
-
-                    exit = exitVariant;
-                    entrance = entranceVariant;
-                }
-                catch
-                {
-                    // ignored
-                }
-            } while (exit == null || entrance == null);
-
-            floor.Tiles[exit] = Tile.LadderDown;
-            floor.Tiles[entrance] = Tile.LadderUp;
-
-            floor.GenerateMonsters(isFirstEnter: true);
-
+            var floor = new Floor(level, entities, settings);
             return floor;
         }
-        
+
         private Rectangle GenerateRoom(DungeonFloorSettings settings)
         {
             int w = Random.Next(settings.RoomSize.Min, settings.RoomSize.Max);

@@ -1,16 +1,12 @@
-﻿using System;
-using SpecialAdventure.Core.Common;
-
-namespace SpecialAdventure.Core.World.Tiles
+﻿namespace SpecialAdventure.Core.World.Tiles
 {
     public class WarpTile : FloorTile
     {
-        public int WarpDepth { get; set; }
-        public Point WarpPoint { get; set; }
-        public Guid LocationId { get; set; }
+        public Warp Warp { get; set; }
 
-        public WarpTile(int spriteId) : base(spriteId)
+        public WarpTile(Warp warp, int spriteId) : base(spriteId)
         {
+            Warp = warp;
         }
     }
 }
